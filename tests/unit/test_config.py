@@ -23,6 +23,10 @@ class ApplicationConfigurationTests(unittest.TestCase):
             PROJECT_ROOT / "data/smart_retail.db",
         )
         self.assertTrue(config.api.enabled)
+        self.assertEqual(
+            config.api.cors_allowed_origins,
+            ("http://localhost:5173", "http://127.0.0.1:5173"),
+        )
         self.assertEqual(config.metrics.rolling_window_size, 60)
         with self.assertRaises(dataclasses.FrozenInstanceError):
             config.camera.camera_index = 1
@@ -58,6 +62,9 @@ class ApplicationConfigurationTests(unittest.TestCase):
                 "SMART_RETAIL_API_HOST": "0.0.0.0",
                 "SMART_RETAIL_API_PORT": "9000",
                 "SMART_RETAIL_API_ENABLED": "yes",
+                "SMART_RETAIL_API_CORS_ALLOWED_ORIGINS": (
+                    "https://dashboard.example.test,http://localhost:4173"
+                ),
                 "SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE": "120",
             }
         )
@@ -91,6 +98,10 @@ class ApplicationConfigurationTests(unittest.TestCase):
         self.assertEqual(config.database.busy_timeout_seconds, 2.5)
         self.assertTrue(config.api.enabled)
         self.assertEqual((config.api.host, config.api.port), ("0.0.0.0", 9000))
+        self.assertEqual(
+            config.api.cors_allowed_origins,
+            ("https://dashboard.example.test", "http://localhost:4173"),
+        )
         self.assertEqual(config.metrics.rolling_window_size, 120)
 
     def test_invalid_numeric_types_fail_with_environment_name(self) -> None:
@@ -147,6 +158,27 @@ class ApplicationConfigurationTests(unittest.TestCase):
             ({"SMART_RETAIL_DATABASE_PATH": "."}, "cannot be a directory"),
             ({"SMART_RETAIL_API_PORT": "70000"}, "between 1 and 65535"),
             ({"SMART_RETAIL_API_HOST": ""}, "host cannot be empty"),
+            ({"SMART_RETAIL_API_CORS_ALLOWED_ORIGINS": "*"}, "CORS origin"),
+            (
+                {"SMART_RETAIL_API_CORS_ALLOWED_ORIGINS": "ftp://localhost:5173"},
+                "http or https",
+            ),
+            (
+                {
+                    "SMART_RETAIL_API_CORS_ALLOWED_ORIGINS": (
+                        "http://user:password@localhost:5173"
+                    )
+                },
+                "credentials",
+            ),
+            (
+                {
+                    "SMART_RETAIL_API_CORS_ALLOWED_ORIGINS": (
+                        "http://localhost:5173/path"
+                    )
+                },
+                "origin without a path",
+            ),
             (
                 {"SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE": "0"},
                 "at least 1",
