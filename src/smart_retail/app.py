@@ -909,7 +909,10 @@ def build_application(
         )
         if config.api.enabled:
             application.api_server = BackgroundAPIServer(
-                create_api_app(application),
+                create_api_app(
+                    application,
+                    allowed_origins=config.api.cors_allowed_origins,
+                ),
                 host=config.api.host,
                 port=config.api.port,
             )
