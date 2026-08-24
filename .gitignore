@@ -51,5 +51,8 @@ logs/
 .tmp/
 tmp/
 
+# Isolated feature worktrees
+.worktrees/
+
 # macOS metadata
 .DS_Store
