@@ -49,8 +49,12 @@ an ignored local file or deployment secret store and must never be added to
 - Responses include `X-Content-Type-Options: nosniff` and
   `Cache-Control: no-store`.
 - State-changing reset uses `POST`; `GET /api/v1/cart/reset` is rejected.
-- CORS middleware is not enabled, so the server does not grant browser access
-  to arbitrary origins.
+- CORS permits only the configured origins in
+  `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`. The local defaults are
+  `http://localhost:5173` and `http://127.0.0.1:5173`; wildcard origins are
+  rejected during configuration validation. CORS credentials are disabled and
+  only `GET` is allowed cross-origin in Frontend Phase 1. An unlisted origin
+  receives no browser permission.
 
 No current endpoint accepts a request body. Request-size middleware would add
 complexity without protecting a body-consuming route. A future upload or
@@ -67,7 +71,8 @@ trusted-client threat model.
 
 Binding the API to `0.0.0.0`, a LAN address, or another externally reachable
 interface expands the threat boundary. The startup warning makes that change
-visible, but does not make it secure.
+visible, but does not make it secure. The explicit local CORS allowlist does
+not make this unauthenticated API safe for public exposure.
 
 ### SQLite and filesystem
 

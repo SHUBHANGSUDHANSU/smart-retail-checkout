@@ -1,32 +1,85 @@
-# React + TypeScript + Vite
+# Smart Retail Checkout Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The React operator dashboard for Smart Retail Checkout. It is intentionally a
+separate process from the native Python webcam application: the browser reads
+state from the FastAPI service while YOLO, ByteTrack, checkout events, and the
+OpenCV window stay in the backend process.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 22.12 or a newer compatible release
+- The Python backend installed according to the root [README](../README.md)
 
-## React Compiler
+## Install and configure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+From this directory:
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm ci
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The dashboard defaults to `http://localhost:8000`. To override it locally,
+create an ignored environment file:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+`VITE_API_BASE_URL` must be an absolute HTTP or HTTPS origin without a path or
+credentials. The local `.env` file is not committed; use `.env.example` as the
+safe reference.
+
+## Run the backend
+
+For the full shared webcam, OpenCV, and API experience, start the native
+application from the repository root:
+
+```bash
+smart-retail
+```
+
+For hardware-free API development, use the separate headless service instead:
+
+```bash
+smart-retail-api
+```
+
+The headless service owns its own in-memory cart and session, so it does not
+share live state with a separately running webcam process.
+
+## Run the dashboard
+
+```bash
+npm run dev
+```
+
+Vite serves the dashboard at `http://localhost:5173` by default. The backend
+allows the configured local development origins
+`http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
+backend allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using a
+different local frontend origin.
+
+Useful commands:
+
+```bash
+npm test
+npm run lint
+npm run build
+npm run preview
+```
+
+## Phase 1 scope
+
+Routes are available at:
+
+- `/` — Dashboard
+- `/sessions` — Sessions placeholder
+- `/system` — System placeholder
+
+Only `GET /health` is connected to the real backend in this phase. The
+dashboard presents loading, connected, and unavailable states for that request;
+cart details, session history, metrics, and richer system status are deferred.
