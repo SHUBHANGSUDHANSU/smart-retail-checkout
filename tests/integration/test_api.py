@@ -486,6 +486,50 @@ class SmartRetailAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["access-control-allow-methods"], "GET")
 
+    def test_configured_frontend_origin_cannot_preflight_post(self) -> None:
+        client = TestClient(
+            create_api_app(
+                self.runtime,
+                allowed_origins=("http://localhost:5173",),
+            )
+        )
+        try:
+            response = client.options(
+                "/api/v1/cart/reset",
+                headers={
+                    "Origin": "http://localhost:5173",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+        finally:
+            client.close()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers["access-control-allow-methods"], "GET")
+
+    def test_cors_does_not_block_simple_post_to_existing_route(self) -> None:
+        client = TestClient(
+            create_api_app(
+                self.runtime,
+                allowed_origins=("http://localhost:5173",),
+            )
+        )
+        try:
+            response = client.post(
+                "/api/v1/cart/reset",
+                headers={"Origin": "http://localhost:5173"},
+            )
+        finally:
+            client.close()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["removed_track_count"], 3)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "http://localhost:5173",
+        )
+        self.assertEqual(self.cart.get_total(), 0)
+
     def test_cart_reset_rejects_the_get_method(self) -> None:
         response = self.client.get("/api/v1/cart/reset")
 
