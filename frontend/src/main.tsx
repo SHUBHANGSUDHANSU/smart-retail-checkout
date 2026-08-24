@@ -1,10 +1,17 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import { BrowserRouter } from 'react-router'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+import { App } from './App'
+import './styles/global.css'
+
+const root = document.getElementById('root')
+
+if (root === null) {
+  throw new Error('Application root element was not found.')
+}
+
+createRoot(root).render(
+  <BrowserRouter>
     <App />
-  </StrictMode>,
+  </BrowserRouter>,
 )
