@@ -29,16 +29,31 @@ function isHealthResponse(value: unknown): value is HealthResponse {
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/health`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    signal,
-  })
+  let response: Response
+  try {
+    response = await fetch(`${appConfig.apiBaseUrl}/health`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal,
+    })
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error
+    }
+    throw new ApiError('Unable to connect to backend.')
+  }
+
   if (!response.ok) {
     throw new ApiError('Backend request failed.', response.status)
   }
 
-  const payload: unknown = await response.json()
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    throw new ApiError('Backend returned invalid health data.')
+  }
+
   if (!isHealthResponse(payload)) {
     throw new ApiError('Backend returned invalid health data.')
   }

@@ -44,6 +44,20 @@ describe('getHealth', () => {
     )
   })
 
+  it('normalizes network failures to a safe connection error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')),
+    )
+
+    await expect(getHealth()).rejects.toEqual(
+      expect.objectContaining({
+        message: 'Unable to connect to backend.',
+        statusCode: undefined,
+      }),
+    )
+  })
+
   it('rejects malformed liveness data', async () => {
     vi.stubGlobal(
       'fetch',
@@ -55,5 +69,21 @@ describe('getHealth', () => {
     )
 
     await expect(getHealth()).rejects.toThrow('invalid health data')
+  })
+
+  it('normalizes invalid JSON to a safe invalid-data error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response('not JSON', { status: 200 }),
+      ),
+    )
+
+    await expect(getHealth()).rejects.toEqual(
+      expect.objectContaining({
+        message: 'Backend returned invalid health data.',
+        statusCode: undefined,
+      }),
+    )
   })
 })
