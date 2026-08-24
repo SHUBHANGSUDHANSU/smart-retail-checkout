@@ -54,5 +54,9 @@ tmp/
 # Isolated feature worktrees
 .worktrees/
 
+# Frontend build artifacts
+node_modules/
+frontend/dist/
+
 # macOS metadata
 .DS_Store
