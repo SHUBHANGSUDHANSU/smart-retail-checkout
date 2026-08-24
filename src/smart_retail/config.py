@@ -574,9 +574,7 @@ def _env_optional_path(
 def _normalize_cors_origin(origin: str) -> str:
     candidate = origin.strip()
     if not candidate or candidate == "*":
-        raise ConfigurationError(
-            "API CORS origin must be explicit, not empty or '*'."
-        )
+        raise ConfigurationError("API CORS origin must be explicit, not empty or '*'.")
     try:
         parsed = urlsplit(candidate)
         port = parsed.port
