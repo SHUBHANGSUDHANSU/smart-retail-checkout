@@ -324,7 +324,7 @@ secrets.
 | `SMART_RETAIL_API_ENABLED` | `true` | Run the local REST API with the webcam app |
 | `SMART_RETAIL_API_HOST` | `127.0.0.1` | Local API bind address |
 | `SMART_RETAIL_API_PORT` | `8000` | Local API port |
-| `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Explicit local browser origins allowed to make Phase 1 GET requests |
+| `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Origins whose browsers may read CORS responses; Phase 1 uses `GET /health` |
 | `SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE` | `60` | Recent frames retained for latency averages |
 
 See [.env.example](.env.example) for every setting. ByteTrack's internal
@@ -486,11 +486,15 @@ process memory with a simultaneously running native webcam process.
 The API is designed for a trusted local machine and binds to `127.0.0.1` by
 default. Responses disable MIME sniffing and shared caching, request parameters
 are bounded and validated, and centralized error handlers never return Python
-tracebacks or internal exception details. CORS allows only configured local
-development origins (by default `http://localhost:5173` and
-`http://127.0.0.1:5173`), without credentials and only for `GET` requests.
-Unlisted origins receive no CORS permission. Binding to a non-loopback address
-emits a warning because the API has no authentication.
+tracebacks or internal exception details. CORS shares responses with configured
+local development origins only (by default `http://localhost:5173` and
+`http://127.0.0.1:5173`) and never enables credentials. Its method allowlist
+rejects preflight requests for methods other than `GET`, which is all the Phase
+1 frontend uses. CORS is not authentication or method authorization: a simple
+cross-origin `POST`, command-line client, or other non-browser client can still
+reach the unauthenticated reset route. An unlisted browser origin normally
+cannot read the response, but that does not secure the API. Binding to a
+non-loopback address emits a warning because the API has no authentication.
 
 `POST /api/v1/cart/reset` intentionally remains unrestricted for this local
 demo. Do not expose it or checkout history directly to an untrusted network.

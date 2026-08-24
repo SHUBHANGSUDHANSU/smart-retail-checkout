@@ -53,8 +53,12 @@ an ignored local file or deployment secret store and must never be added to
   `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`. The local defaults are
   `http://localhost:5173` and `http://127.0.0.1:5173`; wildcard origins are
   rejected during configuration validation. CORS credentials are disabled and
-  only `GET` is allowed cross-origin in Frontend Phase 1. An unlisted origin
-  receives no browser permission.
+  the method allowlist rejects non-`GET` browser preflight requests. The Phase 1
+  frontend only calls `GET /health`. CORS governs whether browser JavaScript may
+  read a response; it is not authentication, authorization, or a server-side
+  method firewall. A simple cross-origin `POST` may still reach reset, and
+  command-line or other non-browser clients do not enforce CORS. An unlisted
+  browser origin normally cannot read the response.
 
 No current endpoint accepts a request body. Request-size middleware would add
 complexity without protecting a body-consuming route. A future upload or
@@ -66,8 +70,9 @@ application boundary.
 `POST /api/v1/cart/reset` intentionally remains unauthenticated for the local
 demo. It calls the same synchronized application service used by the keyboard
 reset; it does not duplicate or bypass cart rules. Any process that can reach
-the API can reset the active cart, which is acceptable only under the local,
-trusted-client threat model.
+the API can reset the active cart. This includes a simple cross-origin browser
+request even though non-`GET` preflight requests are rejected. That exposure is
+acceptable only under the local, trusted-client threat model.
 
 Binding the API to `0.0.0.0`, a LAN address, or another externally reachable
 interface expands the threat boundary. The startup warning makes that change

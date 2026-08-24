@@ -217,8 +217,12 @@ Responses include `X-Content-Type-Options: nosniff` and
 `Cache-Control: no-store`. CORS is enabled only for the explicit origins in
 `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`; its defaults are
 `http://localhost:5173` and `http://127.0.0.1:5173`. It does not allow
-credentials and permits only `GET` cross-origin requests in Frontend Phase 1.
-Origins outside that allowlist receive no CORS permission. There are no
+credentials. Its `GET` method allowlist governs browser preflight responses and
+rejects preflight requests for other methods; `GET /health` is the only request
+made by the Frontend Phase 1 application. This is a response-sharing policy,
+not authentication or method authorization. A simple cross-origin `POST` can
+still reach the reset route, and non-browser clients do not enforce CORS.
+Browsers at unlisted origins normally cannot read CORS responses. There are no
 request-body, filesystem, inference, command-execution, or video endpoints.
 
 The API has no authentication, authorization, TLS, or rate limiting. In

@@ -7,7 +7,7 @@ OpenCV window stay in the backend process.
 
 ## Prerequisites
 
-- Node.js 20.19.x, 22.12+, or 24+
+- Node.js `^20.19.0`, `^22.12.0`, or `>=24.0.0`
 - The Python backend installed according to the root [README](../README.md)
 
 ## Install and configure
@@ -58,10 +58,11 @@ npm run dev
 ```
 
 Vite serves the dashboard at `http://localhost:5173` by default. The backend
-allows the configured local development origins
+shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
-backend allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using a
-different local frontend origin.
+browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
+a different local frontend origin. This policy is not API authentication; only
+`GET /health` is requested by the Phase 1 frontend.
 
 Useful commands:
 
@@ -72,7 +73,7 @@ npm run build
 npm run preview
 ```
 
-The preview command also binds to port `5173`, matching the backend's default
+The `preview` script is pinned to port `5173`, matching the backend's default
 CORS allowlist. Stop the development server before starting preview because
 both commands use the same port.
 
