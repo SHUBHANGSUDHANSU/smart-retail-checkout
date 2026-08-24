@@ -7,7 +7,7 @@ OpenCV window stay in the backend process.
 
 ## Prerequisites
 
-- Node.js 22.12 or a newer compatible release
+- Node.js 20.19.x, 22.12+, or 24+
 - The Python backend installed according to the root [README](../README.md)
 
 ## Install and configure
@@ -71,6 +71,10 @@ npm run lint
 npm run build
 npm run preview
 ```
+
+The preview command also binds to port `5173`, matching the backend's default
+CORS allowlist. Stop the development server before starting preview because
+both commands use the same port.
 
 ## Phase 1 scope
 
