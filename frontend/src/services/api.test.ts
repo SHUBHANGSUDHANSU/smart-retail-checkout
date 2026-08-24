@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { appConfig } from '../config'
 import { ApiError, getHealth } from './api'
 
 afterEach(() => {
@@ -21,7 +22,7 @@ describe('getHealth', () => {
       uptime_seconds: 12.5,
     })
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:8000/health',
+      `${appConfig.apiBaseUrl}/health`,
       expect.objectContaining({ method: 'GET' }),
     )
   })
