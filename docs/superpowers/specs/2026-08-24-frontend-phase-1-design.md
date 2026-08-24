@@ -69,7 +69,7 @@ commits `package-lock.json` for reproducibility:
 - TypeScript 6 in strict mode
 - React Router 8 in declarative mode
 - plain CSS
-- ESLint as the only JavaScript/TypeScript linter
+- Oxlint as the only JavaScript/TypeScript linter
 - Vitest, jsdom, and React Testing Library for deterministic frontend tests
 
 The local Node.js 22.12 runtime satisfies Vite 8's supported runtime floor.
@@ -107,7 +107,7 @@ frontend/
 │   ├── setupTests.ts
 │   └── vite-env.d.ts
 ├── .env.example
-├── eslint.config.js
+├── .oxlintrc.json
 ├── index.html
 ├── package.json
 ├── package-lock.json
@@ -334,7 +334,7 @@ longer claim CORS is entirely disabled.
 Phase 1 is complete when:
 
 1. `frontend/` installs reproducibly from `package-lock.json`.
-2. Frontend tests, ESLint, TypeScript checking, and the Vite production build
+2. Frontend tests, Oxlint, TypeScript checking, and the Vite production build
    pass.
 3. The development server responds and renders the application shell.
 4. Dashboard, Sessions, System, and Not Found routes work directly.
