@@ -1,0 +1,12 @@
+# Paths are relative to this YAML file through Ultralytics' dataset loader.
+train: ../dataset/images/train
+val: ../dataset/images/val
+
+# Start with a few visually distinct retail categories. Class IDs in label
+# files are the numeric keys below.
+names:
+  0: water_bottle_500ml
+  1: coffee_cup
+  2: juice_carton
+  3: chips_packet
+  4: cereal_box
