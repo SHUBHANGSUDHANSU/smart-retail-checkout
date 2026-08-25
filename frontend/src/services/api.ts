@@ -1,6 +1,14 @@
 import { appConfig } from '../config'
 import type { HealthResponse } from '../types/api'
 import type { CartItem, CartResetResponse, CartResponse } from '../types/cart'
+import type {
+  CartEventType,
+  CheckoutEvent,
+  CheckoutSession,
+  CheckoutSessionDetail,
+  RecentEventsResponse,
+  RecentSessionsResponse,
+} from '../types/history'
 
 export class ApiError extends Error {
   readonly statusCode: number | undefined
@@ -28,6 +36,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return Number.isInteger(value) && typeof value === 'number' && value >= 0
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && typeof value === 'number' && value >= 1
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value))
+}
+
+function isCartEventType(value: unknown): value is CartEventType {
+  return value === 'ADD' || value === 'REMOVE' || value === 'RESET'
 }
 
 function isHealthResponse(value: unknown): value is HealthResponse {
@@ -82,6 +102,93 @@ function isCartResetResponse(value: unknown): value is CartResetResponse {
     isNonNegativeInteger(value.removed_track_count) &&
     isCartResponse(value.cart)
   )
+}
+
+function isCheckoutEvent(value: unknown): value is CheckoutEvent {
+  if (
+    !isRecord(value) ||
+    !isPositiveInteger(value.id) ||
+    !isPositiveInteger(value.session_id) ||
+    !isTimestamp(value.timestamp) ||
+    !isCartEventType(value.event_type)
+  ) {
+    return false
+  }
+
+  if (value.event_type === 'RESET') {
+    return (
+      value.track_id === null &&
+      value.product_id === null &&
+      value.unit_price === null
+    )
+  }
+
+  return (
+    isPositiveInteger(value.track_id) &&
+    typeof value.product_id === 'string' &&
+    value.product_id.length > 0 &&
+    isNonNegativeInteger(value.unit_price)
+  )
+}
+
+function isRecentEventsResponse(value: unknown): value is RecentEventsResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.events) &&
+    value.events.every(isCheckoutEvent) &&
+    isPositiveInteger(value.limit) &&
+    value.limit <= 200
+  )
+}
+
+function isCheckoutSession(value: unknown): value is CheckoutSession {
+  if (
+    !isRecord(value) ||
+    !isPositiveInteger(value.id) ||
+    !isTimestamp(value.started_at)
+  ) {
+    return false
+  }
+
+  if (value.ended_at === null) {
+    return value.final_total === null
+  }
+
+  return isTimestamp(value.ended_at) && isNonNegativeInteger(value.final_total)
+}
+
+function isRecentSessionsResponse(
+  value: unknown,
+): value is RecentSessionsResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.sessions) &&
+    value.sessions.every(isCheckoutSession) &&
+    isPositiveInteger(value.limit) &&
+    value.limit <= 100
+  )
+}
+
+function isCheckoutSessionDetail(
+  value: unknown,
+): value is CheckoutSessionDetail {
+  const events = isRecord(value) ? value.events : undefined
+  return (
+    isCheckoutSession(value) &&
+    Array.isArray(events) &&
+    events.every(isCheckoutEvent)
+  )
+}
+
+function requireIntegerInRange(
+  value: number,
+  minimum: number,
+  maximum: number,
+  name: string,
+): void {
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new RangeError(`${name} must be between ${minimum} and ${maximum}.`)
+  }
 }
 
 async function requestJson<T>(
@@ -146,5 +253,44 @@ export function resetCart(signal?: AbortSignal): Promise<CartResetResponse> {
     { method: 'POST', signal },
     isCartResetResponse,
     'Backend returned invalid cart reset data.',
+  )
+}
+
+export function getRecentEvents(
+  limit = 8,
+  signal?: AbortSignal,
+): Promise<RecentEventsResponse> {
+  requireIntegerInRange(limit, 1, 200, 'Event limit')
+  return requestJson(
+    `/api/v1/events?limit=${limit}`,
+    { method: 'GET', signal },
+    isRecentEventsResponse,
+    'Backend returned invalid checkout event data.',
+  )
+}
+
+export function getSessions(
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<RecentSessionsResponse> {
+  requireIntegerInRange(limit, 1, 100, 'Session limit')
+  return requestJson(
+    `/api/v1/sessions?limit=${limit}`,
+    { method: 'GET', signal },
+    isRecentSessionsResponse,
+    'Backend returned invalid checkout session data.',
+  )
+}
+
+export function getSessionById(
+  sessionId: number,
+  signal?: AbortSignal,
+): Promise<CheckoutSessionDetail> {
+  requireIntegerInRange(sessionId, 1, Number.MAX_SAFE_INTEGER, 'Session ID')
+  return requestJson(
+    `/api/v1/sessions/${sessionId}`,
+    { method: 'GET', signal },
+    isCheckoutSessionDetail,
+    'Backend returned invalid checkout session data.',
   )
 }
