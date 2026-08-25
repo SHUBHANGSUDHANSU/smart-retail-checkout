@@ -506,6 +506,10 @@ class SmartRetailAPITests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("POST", response.headers["access-control-allow-methods"])
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "http://localhost:5173",
+        )
 
     def test_cors_does_not_block_simple_post_to_existing_route(self) -> None:
         client = TestClient(
@@ -528,6 +532,26 @@ class SmartRetailAPITests(unittest.TestCase):
             response.headers["access-control-allow-origin"],
             "http://localhost:5173",
         )
+        self.assertEqual(self.cart.get_total(), 0)
+
+    def test_unlisted_origin_can_trigger_reset_but_cannot_read_response(self) -> None:
+        client = TestClient(
+            create_api_app(
+                self.runtime,
+                allowed_origins=("http://localhost:5173",),
+            )
+        )
+        try:
+            response = client.post(
+                "/api/v1/cart/reset",
+                headers={"Origin": "https://example.invalid"},
+            )
+        finally:
+            client.close()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["removed_track_count"], 3)
+        self.assertNotIn("access-control-allow-origin", response.headers)
         self.assertEqual(self.cart.get_total(), 0)
 
     def test_cart_reset_rejects_the_get_method(self) -> None:

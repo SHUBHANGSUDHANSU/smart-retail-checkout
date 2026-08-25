@@ -6,6 +6,8 @@ interface CartItemRowProps {
 }
 
 export function CartItemRow({ item }: CartItemRowProps) {
+  const formattedSubtotal = formatInr(item.subtotal)
+
   return (
     <li className="cart-item-row">
       <div className="cart-item-row__product">
@@ -16,9 +18,9 @@ export function CartItemRow({ item }: CartItemRowProps) {
       </div>
       <strong
         className="cart-item-row__subtotal"
-        aria-label={`${item.product_name} subtotal`}
+        aria-label={`${item.product_name} subtotal ${formattedSubtotal}`}
       >
-        {formatInr(item.subtotal)}
+        {formattedSubtotal}
       </strong>
     </li>
   )

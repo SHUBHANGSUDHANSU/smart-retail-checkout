@@ -129,7 +129,7 @@ describe('useCart', () => {
 
     await waitFor(() => {
       expect(view.result.current.isInitialLoading).toBe(false)
-      expect(view.result.current.error).toBe('Unable to load cart.')
+      expect(view.result.current.loadError).toBe('Unable to load cart.')
     })
     expect(view.result.current.cart).toBeNull()
     view.unmount()
@@ -163,5 +163,26 @@ describe('useCart', () => {
     await resetRequest
 
     expect(getCartMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a reset failure visible after a successful cart refresh', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    getCartMock.mockResolvedValue(populatedCart)
+    resetCartMock.mockRejectedValue(new TypeError('reset detail'))
+
+    const view = renderHook(() => useCart())
+    await waitFor(() => expect(view.result.current.cart).toEqual(populatedCart))
+
+    await act(async () => {
+      await view.result.current.reset()
+    })
+    expect(view.result.current.resetError).toBe('Unable to reset cart.')
+
+    await act(async () => {
+      await view.result.current.refresh()
+    })
+    expect(view.result.current.loadError).toBeNull()
+    expect(view.result.current.resetError).toBe('Unable to reset cart.')
+    view.unmount()
   })
 })

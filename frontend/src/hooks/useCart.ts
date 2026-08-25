@@ -9,9 +9,11 @@ export interface CartState {
   cart: CartResponse | null
   isInitialLoading: boolean
   isResetting: boolean
-  error: string | null
+  loadError: string | null
+  resetError: string | null
   refresh: () => Promise<void>
   reset: () => Promise<boolean>
+  clearResetError: () => void
 }
 
 function isAbortError(error: unknown): boolean {
@@ -22,7 +24,8 @@ export function useCart(): CartState {
   const [cart, setCart] = useState<CartResponse | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [isResetting, setIsResetting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [resetError, setResetError] = useState<string | null>(null)
   const mountedRef = useRef(false)
   const readControllerRef = useRef<AbortController | null>(null)
   const resetControllerRef = useRef<AbortController | null>(null)
@@ -47,7 +50,7 @@ export function useCart(): CartState {
       .then((nextCart) => {
         if (!controller.signal.aborted && mountedRef.current) {
           setCart(nextCart)
-          setError(null)
+          setLoadError(null)
         }
       })
       .catch((requestError: unknown) => {
@@ -57,7 +60,7 @@ export function useCart(): CartState {
 
         console.warn('Cart request failed.', requestError)
         if (mountedRef.current) {
-          setError('Unable to load cart.')
+          setLoadError('Unable to load cart.')
         }
       })
       .finally(() => {
@@ -90,7 +93,7 @@ export function useCart(): CartState {
     const request = (async () => {
       if (mountedRef.current) {
         setIsResetting(true)
-        setError(null)
+        setResetError(null)
       }
 
       readControllerRef.current?.abort()
@@ -112,7 +115,7 @@ export function useCart(): CartState {
 
         console.warn('Cart reset failed.', requestError)
         if (mountedRef.current) {
-          setError('Unable to reset cart.')
+          setResetError('Unable to reset cart.')
         }
         return false
       } finally {
@@ -129,6 +132,8 @@ export function useCart(): CartState {
     resetRequestRef.current = request
     return request
   }, [loadCart])
+
+  const clearResetError = useCallback(() => setResetError(null), [])
 
   useEffect(() => {
     mountedRef.current = true
@@ -154,5 +159,14 @@ export function useCart(): CartState {
     }
   }, [refresh])
 
-  return { cart, isInitialLoading, isResetting, error, refresh, reset }
+  return {
+    cart,
+    isInitialLoading,
+    isResetting,
+    loadError,
+    resetError,
+    refresh,
+    reset,
+    clearResetError,
+  }
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getCart, resetCart } from '../../services/api'
@@ -68,10 +68,12 @@ describe('CurrentCart', () => {
 
     expect(await screen.findByText('Water Bottle')).toBeVisible()
     expect(screen.getByText('₹40 × 2')).toBeVisible()
-    expect(screen.getByLabelText('Water Bottle subtotal')).toHaveTextContent('₹80')
+    expect(screen.getByLabelText('Water Bottle subtotal ₹80')).toHaveTextContent(
+      '₹80',
+    )
     expect(screen.getByText('Apple')).toBeVisible()
     expect(screen.getByText('₹45 × 1')).toBeVisible()
-    expect(screen.getByLabelText('Cart total')).toHaveTextContent('₹125')
+    expect(screen.getByLabelText('Cart total ₹125')).toHaveTextContent('₹125')
   })
 
   it('shows guidance and disables reset when the backend cart is empty', async () => {
@@ -117,7 +119,9 @@ describe('CurrentCart', () => {
     await screen.findByText('Water Bottle')
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset Cart' }))
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Reset current cart?')
+    expect(screen.getByRole('alertdialog')).toHaveAccessibleDescription(
+      'This removes every item from the active checkout.',
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm reset cart' }))
     const submittingButton = screen.getByRole('button', {
@@ -134,6 +138,10 @@ describe('CurrentCart', () => {
     })
 
     expect(await screen.findByText('Cart is empty')).toBeVisible()
+    const successStatus = screen.getByRole('status', {
+      name: 'Cart reset successfully.',
+    })
+    expect(successStatus).toHaveFocus()
     await waitFor(() => expect(getCartMock).toHaveBeenCalledTimes(2))
   })
 
@@ -150,5 +158,27 @@ describe('CurrentCart', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(resetCartMock).not.toHaveBeenCalled()
     await waitFor(() => expect(resetButton).toHaveFocus())
+  })
+
+  it('dismisses a stale confirmation when polling changes the cart', async () => {
+    vi.useFakeTimers()
+    getCartMock
+      .mockResolvedValueOnce(populatedCart)
+      .mockResolvedValueOnce(emptyCart)
+
+    render(<CurrentCart />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Cart' }))
+    expect(screen.getByRole('alertdialog')).toBeVisible()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500)
+    })
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Cart is empty')).toBeVisible()
+    expect(resetCartMock).not.toHaveBeenCalled()
   })
 })

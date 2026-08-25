@@ -492,8 +492,9 @@ local development origins only (by default `http://localhost:5173` and
 supports the frontend's `GET` reads and `POST` cart reset. CORS is not
 authentication or method authorization: command-line and other non-browser
 clients do not enforce it. An unlisted browser origin normally cannot read the
-response, but that does not secure the API. Binding to a non-loopback address
-emits a warning because the API has no authentication.
+response, but it can still send the reset endpoint's simple bodyless `POST` and
+change cart state. CORS therefore does not secure the API. Binding to a
+non-loopback address emits a warning because the API has no authentication.
 
 `POST /api/v1/cart/reset` intentionally remains unrestricted for this local
 demo. Do not expose it or checkout history directly to an untrusted network.

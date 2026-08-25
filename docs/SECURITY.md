@@ -57,7 +57,8 @@ an ignored local file or deployment secret store and must never be added to
   Phase 2 reset action. CORS governs whether browser JavaScript may read a
   response; it is not authentication, authorization, or a server-side method
   firewall. Command-line and other non-browser clients do not enforce CORS. An
-  unlisted browser origin normally cannot read the response.
+  unlisted browser origin normally cannot read the response, but it can still
+  send the reset endpoint's simple bodyless `POST` and change cart state.
 
 No current endpoint accepts a request body. Request-size middleware would add
 complexity without protecting a body-consuming route. A future upload or

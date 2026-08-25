@@ -220,9 +220,10 @@ Responses include `X-Content-Type-Options: nosniff` and
 credentials. Its method allowlist supports the Frontend Phase 2 application's
 `GET` health/cart reads and `POST` cart reset. This is a response-sharing policy,
 not authentication or method authorization; non-browser clients do not enforce
-CORS. Browsers at unlisted origins normally cannot read CORS responses. There
-are no request-body, filesystem, inference, command-execution, or video
-endpoints.
+CORS. Browsers at unlisted origins normally cannot read CORS responses, but a
+simple bodyless `POST` can still reach and mutate the reset endpoint even when
+its response is unreadable. There are no request-body, filesystem, inference,
+command-execution, or video endpoints.
 
 The API has no authentication, authorization, TLS, or rate limiting. In
 particular, any client that can reach the service can invoke cart reset. Keep it
