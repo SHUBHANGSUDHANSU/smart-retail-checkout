@@ -87,6 +87,8 @@ The concise current component map is in
 - FastAPI and Pydantic for the local typed REST API
 - Uvicorn for the background development API server
 - pytest and Coverage.py for deterministic non-vision tests
+- React, Vite, and TypeScript for the operator dashboard
+- React Router for frontend navigation and Oxlint for frontend linting
 
 ## How object detection works
 
@@ -204,6 +206,7 @@ smart-retail-checkout/
 │   ├── unit/                       # Pure domain/service and mocked adapters
 │   ├── integration/                # SQLite, FastAPI, lifecycle, concurrency
 │   └── contracts/                  # Packaging, CI, and container policy checks
+├── frontend/                       # React/Vite operator-dashboard foundation
 └── training/
     ├── data.yaml                  # Example custom dataset configuration
     ├── train.py                   # Opt-in local training entry point
@@ -321,6 +324,7 @@ secrets.
 | `SMART_RETAIL_API_ENABLED` | `true` | Run the local REST API with the webcam app |
 | `SMART_RETAIL_API_HOST` | `127.0.0.1` | Local API bind address |
 | `SMART_RETAIL_API_PORT` | `8000` | Local API port |
+| `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Origins whose browsers may read CORS responses; Phase 1 uses `GET /health` |
 | `SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE` | `60` | Recent frames retained for latency averages |
 
 See [.env.example](.env.example) for every setting. ByteTrack's internal
@@ -480,10 +484,17 @@ process memory with a simultaneously running native webcam process.
 ### Security posture
 
 The API is designed for a trusted local machine and binds to `127.0.0.1` by
-default. Responses disable MIME sniffing and shared caching, CORS is not
-enabled, request parameters are bounded and validated, and centralized error
-handlers never return Python tracebacks or internal exception details. Binding
-to a non-loopback address emits a warning because the API has no authentication.
+default. Responses disable MIME sniffing and shared caching, request parameters
+are bounded and validated, and centralized error handlers never return Python
+tracebacks or internal exception details. CORS shares responses with configured
+local development origins only (by default `http://localhost:5173` and
+`http://127.0.0.1:5173`) and never enables credentials. Its method allowlist
+rejects preflight requests for methods other than `GET`, which is all the Phase
+1 frontend uses. CORS is not authentication or method authorization: a simple
+cross-origin `POST`, command-line client, or other non-browser client can still
+reach the unauthenticated reset route. An unlisted browser origin normally
+cannot read the response, but that does not secure the API. Binding to a
+non-loopback address emits a warning because the API has no authentication.
 
 `POST /api/v1/cart/reset` intentionally remains unrestricted for this local
 demo. Do not expose it or checkout history directly to an untrusted network.
@@ -501,6 +512,31 @@ See [docs/HEALTH_CHECKS.md](docs/HEALTH_CHECKS.md) for responses, transitions,
 and deployment usage.
 The complete endpoint contract, examples, error model, and execution-mode
 differences are documented in [docs/API.md](docs/API.md).
+
+## Frontend
+
+The `frontend/` directory contains a separate React, Vite, and TypeScript
+operator-dashboard foundation. Start the native backend for shared webcam and
+API state in one terminal:
+
+```bash
+source .venv/bin/activate
+smart-retail
+```
+
+Then start the frontend in another terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+The optional `frontend/.env` file can override
+`VITE_API_BASE_URL=http://localhost:8000`; it is ignored by Git. In Phase 1,
+the dashboard makes one real `GET /health` request and does not replace the
+OpenCV interface. See [frontend/README.md](frontend/README.md) for the
+hardware-free `smart-retail-api` alternative and frontend commands.
 
 ### Thread safety
 

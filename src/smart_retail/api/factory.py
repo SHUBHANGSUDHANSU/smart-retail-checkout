@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from smart_retail.api.dependencies import APIRuntime
@@ -27,6 +28,7 @@ Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 def create_api_app(
     runtime: APIRuntime,
     *,
+    allowed_origins: Sequence[str] = (),
     lifespan: Lifespan | None = None,
 ) -> FastAPI:
     """Create an API over one already-composed realtime application instance."""
@@ -50,6 +52,15 @@ def create_api_app(
         lifespan=lifespan,
     )
     application.state.runtime = runtime
+
+    if allowed_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(allowed_origins),
+            allow_credentials=False,
+            allow_methods=["GET"],
+            allow_headers=["Accept"],
+        )
 
     application.include_router(health.router)
     application.include_router(cart.router, prefix="/api/v1")

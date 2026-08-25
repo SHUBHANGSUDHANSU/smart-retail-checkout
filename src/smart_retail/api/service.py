@@ -376,7 +376,11 @@ def create_service_app(
         finally:
             runtime.stop()
 
-    application = create_api_app(runtime, lifespan=lifespan)
+    application = create_api_app(
+        runtime,
+        allowed_origins=runtime_config.api.cors_allowed_origins,
+        lifespan=lifespan,
+    )
     application.state.runtime = runtime
     return application
 

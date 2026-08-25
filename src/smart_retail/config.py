@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast
+from urllib.parse import urlsplit
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 SOURCE_PROJECT_ROOT = PACKAGE_ROOT.parents[1]
@@ -21,6 +22,10 @@ ENV_PREFIX = "SMART_RETAIL_"
 DevicePreference = Literal["auto", "mps", "cpu"]
 TrackerType = Literal["bytetrack"]
 VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
+DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
 
 
 class ConfigurationError(ValueError):
@@ -211,12 +216,19 @@ class APIConfig:
     host: str = "127.0.0.1"
     port: int = 8000
     enabled: bool = True
+    cors_allowed_origins: tuple[str, ...] = DEFAULT_CORS_ALLOWED_ORIGINS
 
     def __post_init__(self) -> None:
         if not self.host.strip():
             raise ConfigurationError("API host cannot be empty.")
         if not 1 <= self.port <= 65535:
             raise ConfigurationError("API port must be between 1 and 65535.")
+        normalized_origins = tuple(
+            _normalize_cors_origin(origin) for origin in self.cors_allowed_origins
+        )
+        if len(set(normalized_origins)) != len(normalized_origins):
+            raise ConfigurationError("API CORS origins cannot contain duplicates.")
+        object.__setattr__(self, "cors_allowed_origins", normalized_origins)
 
 
 @dataclass(frozen=True, slots=True)
@@ -422,6 +434,11 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         host=_env_string(environment, "API_HOST", "127.0.0.1"),
         port=_env_int(environment, "API_PORT", 8000),
         enabled=_env_bool(environment, "API_ENABLED", True),
+        cors_allowed_origins=_env_csv(
+            environment,
+            "API_CORS_ALLOWED_ORIGINS",
+            DEFAULT_CORS_ALLOWED_ORIGINS,
+        ),
     )
     metrics = MetricsConfig(
         rolling_window_size=_env_int(
@@ -552,6 +569,30 @@ def _env_optional_path(
         return None
     path = Path(value).expanduser()
     return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
+
+
+def _normalize_cors_origin(origin: str) -> str:
+    candidate = origin.strip()
+    if not candidate or candidate == "*":
+        raise ConfigurationError("API CORS origin must be explicit, not empty or '*'.")
+    try:
+        parsed = urlsplit(candidate)
+        port = parsed.port
+    except ValueError as error:
+        raise ConfigurationError(f"API CORS origin is invalid: {candidate}.") from error
+    if parsed.scheme not in {"http", "https"}:
+        raise ConfigurationError("API CORS origin must use http or https.")
+    if parsed.hostname is None:
+        raise ConfigurationError("API CORS origin must include a hostname.")
+    if parsed.username is not None or parsed.password is not None:
+        raise ConfigurationError("API CORS origin cannot include credentials.")
+    if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+        raise ConfigurationError(
+            "API CORS origin must be an origin without a path, query, or fragment."
+        )
+    host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+    authority = f"{host}:{port}" if port is not None else host
+    return f"{parsed.scheme}://{authority}"
 
 
 def _validate_probability(label: str, value: float) -> None:

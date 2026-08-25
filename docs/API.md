@@ -214,8 +214,16 @@ uses short-lived connections and does not run under the cart lock. See
 ## Security scope
 
 Responses include `X-Content-Type-Options: nosniff` and
-`Cache-Control: no-store`. CORS is not enabled. There are no request-body,
-filesystem, inference, command-execution, or video endpoints.
+`Cache-Control: no-store`. CORS is enabled only for the explicit origins in
+`SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`; its defaults are
+`http://localhost:5173` and `http://127.0.0.1:5173`. It does not allow
+credentials. Its `GET` method allowlist governs browser preflight responses and
+rejects preflight requests for other methods; `GET /health` is the only request
+made by the Frontend Phase 1 application. This is a response-sharing policy,
+not authentication or method authorization. A simple cross-origin `POST` can
+still reach the reset route, and non-browser clients do not enforce CORS.
+Browsers at unlisted origins normally cannot read CORS responses. There are no
+request-body, filesystem, inference, command-execution, or video endpoints.
 
 The API has no authentication, authorization, TLS, or rate limiting. In
 particular, any client that can reach the service can invoke cart reset. Keep it
