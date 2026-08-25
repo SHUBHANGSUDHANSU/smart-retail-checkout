@@ -98,9 +98,11 @@ export function useCart(): CartState {
 
       try {
         const response = await resetCart(controller.signal)
-        if (!controller.signal.aborted && mountedRef.current) {
-          setCart(response.cart)
+        if (controller.signal.aborted || !mountedRef.current) {
+          return false
         }
+
+        setCart(response.cart)
         await loadCart(true)
         return true
       } catch (requestError: unknown) {

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getCart, resetCart } from '../services/api'
-import type { CartResponse } from '../types/cart'
+import type { CartResetResponse, CartResponse } from '../types/cart'
 import { CART_POLL_INTERVAL_MS, useCart } from './useCart'
 
 vi.mock('../services/api', () => ({
@@ -133,5 +133,35 @@ describe('useCart', () => {
     })
     expect(view.result.current.cart).toBeNull()
     view.unmount()
+  })
+
+  it('does not start reconciliation after unmounting during reset', async () => {
+    let resolveReset: ((response: CartResetResponse) => void) | undefined
+    getCartMock.mockResolvedValue(populatedCart)
+    resetCartMock.mockImplementation(
+      () =>
+        new Promise<CartResetResponse>((resolve) => {
+          resolveReset = resolve
+        }),
+    )
+
+    const view = renderHook(() => useCart())
+    await waitFor(() => expect(view.result.current.cart).toEqual(populatedCart))
+
+    let resetRequest: Promise<boolean> | undefined
+    act(() => {
+      resetRequest = view.result.current.reset()
+    })
+    await waitFor(() => expect(resetCartMock).toHaveBeenCalledTimes(1))
+    view.unmount()
+
+    resolveReset?.({
+      status: 'reset',
+      removed_track_count: 2,
+      cart: emptyCart,
+    })
+    await resetRequest
+
+    expect(getCartMock).toHaveBeenCalledTimes(1)
   })
 })
