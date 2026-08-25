@@ -58,6 +58,18 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
@@ -526,6 +538,76 @@ h2 {
 .event-row time {
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.session-history {
+  display: grid;
+  gap: 1rem;
+}
+
+.session-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.session-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 48rem;
+  text-align: left;
+}
+
+.session-table th,
+.session-table td {
+  padding: 0.9rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.session-table thead th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.session-table tbody th {
+  font-weight: 700;
+}
+
+.session-table time,
+.session-table__amount {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.session-link {
+  color: var(--text);
+  text-decoration-color: #4d675d;
+  text-underline-offset: 0.25rem;
+}
+
+.session-link:hover {
+  color: var(--healthy);
+}
+
+.session-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.session-status--active {
+  color: var(--healthy);
+}
+
+.session-status--completed {
+  color: var(--system);
 }
 
 .event-row time {
