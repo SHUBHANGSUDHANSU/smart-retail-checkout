@@ -1,5 +1,6 @@
 import { ConnectionStatus } from '../components/ConnectionStatus'
 import { DashboardCard } from '../components/DashboardCard'
+import { CurrentCart } from '../components/cart/CurrentCart'
 import { useBackendHealth } from '../hooks/useBackendHealth'
 
 export function DashboardPage() {
@@ -13,9 +14,7 @@ export function DashboardPage() {
         <p>Realtime cashierless checkout monitoring dashboard</p>
       </header>
       <div className="dashboard-grid">
-        <DashboardCard title="Current Cart">
-          <p className="empty-copy">No data loaded yet</p>
-        </DashboardCard>
+        <CurrentCart />
         <DashboardCard title="System Status">
           <ConnectionStatus state={backendHealth} />
         </DashboardCard>
