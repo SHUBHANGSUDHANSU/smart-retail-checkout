@@ -1,6 +1,7 @@
 import { ConnectionStatus } from '../components/ConnectionStatus'
 import { DashboardCard } from '../components/DashboardCard'
 import { CurrentCart } from '../components/cart/CurrentCart'
+import { RecentEvents } from '../components/events/RecentEvents'
 import { useBackendHealth } from '../hooks/useBackendHealth'
 
 export function DashboardPage() {
@@ -18,9 +19,7 @@ export function DashboardPage() {
         <DashboardCard title="System Status">
           <ConnectionStatus state={backendHealth} />
         </DashboardCard>
-        <DashboardCard title="Recent Events">
-          <p className="empty-copy">No data loaded yet</p>
-        </DashboardCard>
+        <RecentEvents />
         <DashboardCard title="Live Metrics">
           <p className="empty-copy">No data loaded yet</p>
         </DashboardCard>

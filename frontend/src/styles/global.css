@@ -14,6 +14,8 @@
   --text: #f3f5f4;
   --muted: #9ba8a3;
   --healthy: #45c486;
+  --warning: #d7a957;
+  --system: #8da9e8;
   --unavailable: #ef7070;
   --focus: #8de8b9;
 }
@@ -433,6 +435,104 @@ h2 {
   margin-top: 0.25rem;
 }
 
+.recent-events,
+.history-empty {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.history-state,
+.history-empty p,
+.history-notice p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.history-empty p {
+  line-height: 1.55;
+}
+
+.history-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #704141;
+  border-radius: 0.6rem;
+  background: #251818;
+}
+
+.history-notice p {
+  color: #f5b4b4;
+}
+
+.event-list {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.event-row:last-child {
+  border-bottom: 0;
+}
+
+.event-row__badge {
+  min-width: 4.4rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.event-row--positive .event-row__badge {
+  color: var(--healthy);
+}
+
+.event-row--warning .event-row__badge {
+  color: var(--warning);
+}
+
+.event-row--system .event-row__badge {
+  color: var(--system);
+}
+
+.event-row__content {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.event-row__content strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-row__content span,
+.event-row time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.event-row time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -471,6 +571,7 @@ h2 {
   }
 
   .cart-notice,
+  .history-notice,
   .cart-total {
     align-items: stretch;
     flex-direction: column;
@@ -482,8 +583,17 @@ h2 {
   }
 
   .cart-actions .button,
+  .history-notice .button,
   .reset-confirmation__actions .button {
     flex: 1;
+  }
+
+  .event-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .event-row time {
+    grid-column: 2;
   }
 }
 
