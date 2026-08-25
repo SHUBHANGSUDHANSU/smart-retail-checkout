@@ -324,7 +324,7 @@ secrets.
 | `SMART_RETAIL_API_ENABLED` | `true` | Run the local REST API with the webcam app |
 | `SMART_RETAIL_API_HOST` | `127.0.0.1` | Local API bind address |
 | `SMART_RETAIL_API_PORT` | `8000` | Local API port |
-| `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Origins whose browsers may read CORS responses; Phase 1 uses `GET /health` |
+| `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Origins whose browsers may read health and cart API responses |
 | `SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE` | `60` | Recent frames retained for latency averages |
 
 See [.env.example](.env.example) for every setting. ByteTrack's internal
@@ -489,12 +489,11 @@ are bounded and validated, and centralized error handlers never return Python
 tracebacks or internal exception details. CORS shares responses with configured
 local development origins only (by default `http://localhost:5173` and
 `http://127.0.0.1:5173`) and never enables credentials. Its method allowlist
-rejects preflight requests for methods other than `GET`, which is all the Phase
-1 frontend uses. CORS is not authentication or method authorization: a simple
-cross-origin `POST`, command-line client, or other non-browser client can still
-reach the unauthenticated reset route. An unlisted browser origin normally
-cannot read the response, but that does not secure the API. Binding to a
-non-loopback address emits a warning because the API has no authentication.
+supports the frontend's `GET` reads and `POST` cart reset. CORS is not
+authentication or method authorization: command-line and other non-browser
+clients do not enforce it. An unlisted browser origin normally cannot read the
+response, but that does not secure the API. Binding to a non-loopback address
+emits a warning because the API has no authentication.
 
 `POST /api/v1/cart/reset` intentionally remains unrestricted for this local
 demo. Do not expose it or checkout history directly to an untrusted network.
@@ -533,9 +532,9 @@ npm run dev
 ```
 
 The optional `frontend/.env` file can override
-`VITE_API_BASE_URL=http://localhost:8000`; it is ignored by Git. In Phase 1,
-the dashboard makes one real `GET /health` request and does not replace the
-OpenCV interface. See [frontend/README.md](frontend/README.md) for the
+`VITE_API_BASE_URL=http://localhost:8000`; it is ignored by Git. In Phase 2,
+the dashboard reads backend health and the live shared cart; it does not replace
+the OpenCV interface. See [frontend/README.md](frontend/README.md) for the
 hardware-free `smart-retail-api` alternative and frontend commands.
 
 ### Thread safety

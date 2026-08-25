@@ -484,9 +484,9 @@ class SmartRetailAPITests(unittest.TestCase):
             client.close()
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers["access-control-allow-methods"], "GET")
+        self.assertIn("GET", response.headers["access-control-allow-methods"])
 
-    def test_configured_frontend_origin_cannot_preflight_post(self) -> None:
+    def test_configured_frontend_origin_can_preflight_cart_reset_post(self) -> None:
         client = TestClient(
             create_api_app(
                 self.runtime,
@@ -504,8 +504,8 @@ class SmartRetailAPITests(unittest.TestCase):
         finally:
             client.close()
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.headers["access-control-allow-methods"], "GET")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("POST", response.headers["access-control-allow-methods"])
 
     def test_cors_does_not_block_simple_post_to_existing_route(self) -> None:
         client = TestClient(
