@@ -58,7 +58,7 @@ def create_api_app(
             CORSMiddleware,
             allow_origins=list(allowed_origins),
             allow_credentials=False,
-            allow_methods=["GET"],
+            allow_methods=["GET", "POST"],
             allow_headers=["Accept"],
         )
 

@@ -25,11 +25,15 @@ describe('DashboardPage backend connection', () => {
   })
 
   it('shows Backend Connected after a successful health response', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ status: 'ok', uptime_seconds: 4.2 }), {
-        status: 200,
-      }),
-    )
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation((input) => {
+      const url = String(input)
+      const payload = url.endsWith('/api/v1/cart')
+        ? { items: [], total_quantity: 0, total: 0 }
+        : { status: 'ok', uptime_seconds: 4.2 }
+      return Promise.resolve(
+        new Response(JSON.stringify(payload), { status: 200 }),
+      )
+    })
     vi.stubGlobal('fetch', fetchMock)
 
     render(
@@ -39,7 +43,8 @@ describe('DashboardPage backend connection', () => {
     )
 
     expect(await screen.findByText('Backend Connected')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Cart is empty')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('shows a friendly unavailable state when fetch fails', async () => {

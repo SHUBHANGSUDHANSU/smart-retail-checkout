@@ -53,12 +53,12 @@ an ignored local file or deployment secret store and must never be added to
   `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`. The local defaults are
   `http://localhost:5173` and `http://127.0.0.1:5173`; wildcard origins are
   rejected during configuration validation. CORS credentials are disabled and
-  the method allowlist rejects non-`GET` browser preflight requests. The Phase 1
-  frontend only calls `GET /health`. CORS governs whether browser JavaScript may
-  read a response; it is not authentication, authorization, or a server-side
-  method firewall. A simple cross-origin `POST` may still reach reset, and
-  command-line or other non-browser clients do not enforce CORS. An unlisted
-  browser origin normally cannot read the response.
+  the method allowlist contains `GET` for health/cart reads and `POST` for the
+  Phase 2 reset action. CORS governs whether browser JavaScript may read a
+  response; it is not authentication, authorization, or a server-side method
+  firewall. Command-line and other non-browser clients do not enforce CORS. An
+  unlisted browser origin normally cannot read the response, but it can still
+  send the reset endpoint's simple bodyless `POST` and change cart state.
 
 No current endpoint accepts a request body. Request-size middleware would add
 complexity without protecting a body-consuming route. A future upload or
@@ -69,10 +69,10 @@ application boundary.
 
 `POST /api/v1/cart/reset` intentionally remains unauthenticated for the local
 demo. It calls the same synchronized application service used by the keyboard
-reset; it does not duplicate or bypass cart rules. Any process that can reach
-the API can reset the active cart. This includes a simple cross-origin browser
-request even though non-`GET` preflight requests are rejected. That exposure is
-acceptable only under the local, trusted-client threat model.
+reset; it does not duplicate or bypass cart rules. Any client that can reach
+the API can reset the active cart. Browser access from configured origins is
+deliberately supported by Frontend Phase 2. That exposure is acceptable only
+under the local, trusted-client threat model.
 
 Binding the API to `0.0.0.0`, a LAN address, or another externally reachable
 interface expands the threat boundary. The startup warning makes that change

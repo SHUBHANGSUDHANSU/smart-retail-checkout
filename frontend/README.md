@@ -61,8 +61,9 @@ Vite serves the dashboard at `http://localhost:5173` by default. The backend
 shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
 browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
-a different local frontend origin. This policy is not API authentication; only
-`GET /health` is requested by the Phase 1 frontend.
+a different local frontend origin. This policy is not API authentication;
+Frontend Phase 2 uses `GET /health`, `GET /api/v1/cart`, and
+`POST /api/v1/cart/reset`.
 
 Useful commands:
 
@@ -77,7 +78,20 @@ The `preview` script is pinned to port `5173`, matching the backend's default
 CORS allowlist. Stop the development server before starting preview because
 both commands use the same port.
 
-## Phase 1 scope
+## Current Cart
+
+The Dashboard loads the shared backend cart immediately and then polls
+`GET /api/v1/cart` every 1.5 seconds. Polls are scheduled only after the prior
+request settles, so slow requests do not overlap. The card preserves its last
+successful snapshot during background failures and offers a manual retry.
+
+Reset uses `POST /api/v1/cart/reset`, the same synchronized operation used by
+the OpenCV `R` key. The frontend asks for confirmation, prevents duplicate
+submissions, uses the returned server snapshot immediately, and performs one
+follow-up read to reconcile state. The reset endpoint remains unauthenticated
+and is suitable only for this trusted local demo.
+
+## Phase 2 scope
 
 Routes are available at:
 
@@ -85,6 +99,6 @@ Routes are available at:
 - `/sessions` — Sessions placeholder
 - `/system` — System placeholder
 
-Only `GET /health` is connected to the real backend in this phase. The
-dashboard presents loading, connected, and unavailable states for that request;
-cart details, session history, metrics, and richer system status are deferred.
+Backend health and the Current Cart use real API data. Session history, recent
+events, metrics, charts, camera streaming, and richer system status are
+deferred.
