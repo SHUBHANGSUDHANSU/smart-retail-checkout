@@ -23,6 +23,7 @@ describe('application routing', () => {
   it.each([
     ['/', 'Smart Retail Checkout'],
     ['/sessions', 'Checkout Sessions'],
+    ['/sessions/21', 'Session #21'],
     ['/system', 'System'],
   ])('renders %s', (route, heading) => {
     renderRoute(route)
