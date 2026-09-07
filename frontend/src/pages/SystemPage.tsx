@@ -80,15 +80,20 @@ function ReadinessOverview({ state }: { state: HealthState }) {
   if (state.readiness) {
     const ready = state.readiness.status === 'ready'
     return (
-      <StatusIndicator
-        label="Readiness"
-        status={state.readinessError ? 'unavailable' : ready ? 'ready' : 'degraded'}
-        detail={
-          ready
-            ? 'Ready to process checkout work.'
-            : 'Not ready for checkout work.'
-        }
-      />
+      <div className="observability-content">
+        <StatusIndicator
+          label="Readiness"
+          status={state.readinessError ? 'unavailable' : ready ? 'ready' : 'degraded'}
+          detail={
+            ready
+              ? 'Ready to process checkout work.'
+              : 'Not ready for checkout work.'
+          }
+        />
+        <p className="application-state">
+          Application state: {formatComponentName(state.readiness.application_state)}
+        </p>
+      </div>
     )
   }
   return <StatusIndicator label="Readiness" status="loading" detail="Checking readiness..." />

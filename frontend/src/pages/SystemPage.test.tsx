@@ -95,6 +95,24 @@ describe('SystemPage', () => {
     expect(screen.getByText('Unavailable')).toBeVisible()
   })
 
+  it('shows the backend application lifecycle state', async () => {
+    const stopping: ReadinessResponse = {
+      ...readinessResponse,
+      status: 'not_ready',
+      application_state: 'stopping',
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(responseFor(String(input), stopping)),
+      ),
+    )
+
+    render(<SystemPage />)
+
+    expect(await screen.findByText('Application state: Stopping')).toBeVisible()
+  })
+
   it('shows retry controls when the backend is unavailable', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const fetchMock = vi

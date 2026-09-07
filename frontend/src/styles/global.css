@@ -670,7 +670,8 @@ h2 {
 }
 
 .observability-state,
-.observability-notice p {
+.observability-notice p,
+.application-state {
   margin: 0;
   color: var(--muted);
 }
@@ -688,6 +689,10 @@ h2 {
 
 .observability-notice p {
   color: #f5b4b4;
+}
+
+.application-state {
+  font-size: 0.78rem;
 }
 
 .observability-notice--inline {
