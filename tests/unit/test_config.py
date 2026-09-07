@@ -28,6 +28,9 @@ class ApplicationConfigurationTests(unittest.TestCase):
             ("http://localhost:5173", "http://127.0.0.1:5173"),
         )
         self.assertEqual(config.metrics.rolling_window_size, 60)
+        self.assertEqual(config.realtime.queue_capacity, 64)
+        self.assertEqual(config.realtime.heartbeat_seconds, 15.0)
+        self.assertEqual(config.realtime.metrics_interval_seconds, 1.0)
         with self.assertRaises(dataclasses.FrozenInstanceError):
             config.camera.camera_index = 1
 
@@ -66,6 +69,9 @@ class ApplicationConfigurationTests(unittest.TestCase):
                     "https://dashboard.example.test,http://localhost:4173"
                 ),
                 "SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE": "120",
+                "SMART_RETAIL_REALTIME_QUEUE_CAPACITY": "32",
+                "SMART_RETAIL_REALTIME_HEARTBEAT_SECONDS": "12.5",
+                "SMART_RETAIL_REALTIME_METRICS_INTERVAL_SECONDS": "0.75",
             }
         )
 
@@ -103,6 +109,9 @@ class ApplicationConfigurationTests(unittest.TestCase):
             ("https://dashboard.example.test", "http://localhost:4173"),
         )
         self.assertEqual(config.metrics.rolling_window_size, 120)
+        self.assertEqual(config.realtime.queue_capacity, 32)
+        self.assertEqual(config.realtime.heartbeat_seconds, 12.5)
+        self.assertEqual(config.realtime.metrics_interval_seconds, 0.75)
 
     def test_invalid_numeric_types_fail_with_environment_name(self) -> None:
         invalid_values = (
@@ -182,6 +191,22 @@ class ApplicationConfigurationTests(unittest.TestCase):
             (
                 {"SMART_RETAIL_METRICS_ROLLING_WINDOW_SIZE": "0"},
                 "at least 1",
+            ),
+            (
+                {"SMART_RETAIL_REALTIME_QUEUE_CAPACITY": "0"},
+                "queue capacity must be at least 1",
+            ),
+            (
+                {"SMART_RETAIL_REALTIME_HEARTBEAT_SECONDS": "0"},
+                "heartbeat interval must be positive",
+            ),
+            (
+                {"SMART_RETAIL_REALTIME_METRICS_INTERVAL_SECONDS": "-1"},
+                "metrics interval must be positive",
+            ),
+            (
+                {"SMART_RETAIL_REALTIME_HEARTBEAT_SECONDS": "nan"},
+                "heartbeat interval must be finite",
             ),
         )
         for environment, expected_message in invalid_values:
