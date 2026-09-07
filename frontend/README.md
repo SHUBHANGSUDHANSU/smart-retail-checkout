@@ -62,8 +62,8 @@ shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
 browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
 a different local frontend origin. This policy is not API authentication;
-Frontend Phase 2 uses `GET /health`, `GET /api/v1/cart`, and
-`POST /api/v1/cart/reset`.
+the frontend uses `GET /health`, `GET /api/v1/cart`,
+`POST /api/v1/cart/reset`, and the checkout-history endpoints described below.
 
 Useful commands:
 
@@ -91,14 +91,38 @@ submissions, uses the returned server snapshot immediately, and performs one
 follow-up read to reconcile state. The reset endpoint remains unauthenticated
 and is suitable only for this trusted local demo.
 
-## Phase 2 scope
+## Checkout history
+
+The Dashboard loads `GET /api/v1/events?limit=8` immediately and refreshes it
+every two seconds. Like cart polling, the next timer starts only after the
+current request settles. Existing events remain visible if a background
+refresh fails, and a compact retry action is available.
+
+`GET /api/v1/sessions?limit=20` supplies the Sessions page. It is loaded once
+when the page opens because the backend provides a bounded newest-first list,
+not pagination. Active sessions are identified by the backend's
+`ended_at: null` state; completed sessions display the persisted final total.
+
+Selecting a session opens `/sessions/:sessionId`, backed by
+`GET /api/v1/sessions/{session_id}`. The page shows persisted session metadata
+and its insertion-ordered event history. A backend `404` becomes a clean
+"Session not found" state; unavailable history shows a retryable local error.
+Timestamps remain ISO strings at the API boundary and are formatted in the
+browser's local timezone for display.
+
+The event API exposes persisted `product_id` values rather than catalog display
+names. The frontend converts separators and capitalization for readability but
+does not invent product metadata.
+
+## Phase 3 scope
 
 Routes are available at:
 
 - `/` — Dashboard
-- `/sessions` — Sessions placeholder
+- `/sessions` — persisted checkout-session history
+- `/sessions/:sessionId` — one session and its event history
 - `/system` — System placeholder
 
-Backend health and the Current Cart use real API data. Session history, recent
-events, metrics, charts, camera streaming, and richer system status are
-deferred.
+Backend health, the Current Cart, Recent Events, and Sessions use real API data.
+Metrics, charts, camera streaming, WebSockets, authentication, and richer
+system status remain deferred.
