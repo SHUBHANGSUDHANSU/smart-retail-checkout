@@ -24,7 +24,7 @@ describe('application routing', () => {
     ['/', 'Smart Retail Checkout'],
     ['/sessions', 'Checkout Sessions'],
     ['/sessions/21', 'Session #21'],
-    ['/system', 'System'],
+    ['/system', 'System Health'],
   ])('renders %s', (route, heading) => {
     renderRoute(route)
 

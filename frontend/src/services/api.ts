@@ -1,5 +1,11 @@
 import { appConfig } from '../config'
-import type { HealthResponse } from '../types/api'
+import type {
+  ApplicationState,
+  HealthResponse,
+  MetricsResponse,
+  ReadinessComponentStatus,
+  ReadinessResponse,
+} from '../types/api'
 import type { CartItem, CartResetResponse, CartResponse } from '../types/cart'
 import type {
   CartEventType,
@@ -28,10 +34,15 @@ type JsonValidator<T> = (value: unknown) => value is T
 interface JsonRequestOptions {
   method: 'GET' | 'POST'
   signal?: AbortSignal
+  acceptedStatuses?: readonly number[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
@@ -56,10 +67,75 @@ function isHealthResponse(value: unknown): value is HealthResponse {
   }
 
   return (
-    typeof value.status === 'string' &&
-    typeof value.uptime_seconds === 'number' &&
-    Number.isFinite(value.uptime_seconds) &&
-    value.uptime_seconds >= 0
+    value.status === 'ok' && isNonNegativeNumber(value.uptime_seconds)
+  )
+}
+
+function isApplicationState(value: unknown): value is ApplicationState {
+  return (
+    value === 'initializing' ||
+    value === 'running' ||
+    value === 'stopping' ||
+    value === 'stopped' ||
+    value === 'error'
+  )
+}
+
+function isReadinessComponentStatus(
+  value: unknown,
+): value is ReadinessComponentStatus {
+  return (
+    value === 'initializing' ||
+    value === 'ready' ||
+    value === 'unavailable' ||
+    value === 'disabled'
+  )
+}
+
+function isReadinessResponse(value: unknown): value is ReadinessResponse {
+  if (
+    !isRecord(value) ||
+    (value.status !== 'ready' && value.status !== 'not_ready') ||
+    !isApplicationState(value.application_state) ||
+    !isRecord(value.components)
+  ) {
+    return false
+  }
+
+  return Object.values(value.components).every(isReadinessComponentStatus)
+}
+
+const integerMetricNames = [
+  'frames_processed_total',
+  'dropped_frames_total',
+  'detections_total',
+  'active_tracks',
+  'checkout_enter_events_total',
+  'checkout_exit_events_total',
+  'cart_additions_total',
+  'cart_removals_total',
+  'cart_resets_total',
+  'current_cart_items',
+  'current_cart_total',
+  'camera_errors_total',
+  'persistence_errors_total',
+] as const satisfies readonly (keyof MetricsResponse)[]
+
+const numericMetricNames = [
+  'inference_latency_ms',
+  'frame_processing_latency_ms',
+  'current_fps',
+  'uptime_seconds',
+] as const satisfies readonly (keyof MetricsResponse)[]
+
+function isMetricsResponse(value: unknown): value is MetricsResponse {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    integerMetricNames.every((name) => isNonNegativeInteger(value[name])) &&
+    numericMetricNames.every((name) => isNonNegativeNumber(value[name]))
   )
 }
 
@@ -211,7 +287,8 @@ async function requestJson<T>(
     throw new ApiError('Unable to connect to backend.')
   }
 
-  if (!response.ok) {
+  const statusAccepted = options.acceptedStatuses?.includes(response.status)
+  if (!response.ok && !statusAccepted) {
     throw new ApiError('Backend request failed.', response.status)
   }
 
@@ -219,11 +296,17 @@ async function requestJson<T>(
   try {
     payload = await response.json()
   } catch {
-    throw new ApiError(invalidDataMessage)
+    throw new ApiError(
+      invalidDataMessage,
+      response.ok ? undefined : response.status,
+    )
   }
 
   if (!validator(payload)) {
-    throw new ApiError(invalidDataMessage)
+    throw new ApiError(
+      invalidDataMessage,
+      response.ok ? undefined : response.status,
+    )
   }
 
   return payload
@@ -235,6 +318,24 @@ export function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
     { method: 'GET', signal },
     isHealthResponse,
     'Backend returned invalid health data.',
+  )
+}
+
+export function getReadiness(signal?: AbortSignal): Promise<ReadinessResponse> {
+  return requestJson(
+    '/ready',
+    { method: 'GET', signal, acceptedStatuses: [503] },
+    isReadinessResponse,
+    'Backend returned invalid readiness data.',
+  )
+}
+
+export function getMetrics(signal?: AbortSignal): Promise<MetricsResponse> {
+  return requestJson(
+    '/api/v1/metrics',
+    { method: 'GET', signal },
+    isMetricsResponse,
+    'Backend returned invalid metrics data.',
   )
 }
 

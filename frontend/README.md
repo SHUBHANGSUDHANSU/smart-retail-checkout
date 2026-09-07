@@ -62,8 +62,9 @@ shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
 browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
 a different local frontend origin. This policy is not API authentication;
-the frontend uses `GET /health`, `GET /api/v1/cart`,
-`POST /api/v1/cart/reset`, and the checkout-history endpoints described below.
+the frontend uses `GET /health`, `GET /ready`, `GET /api/v1/metrics`,
+`GET /api/v1/cart`, `POST /api/v1/cart/reset`, and the checkout-history
+endpoints described below.
 
 Useful commands:
 
@@ -114,15 +115,42 @@ The event API exposes persisted `product_id` values rather than catalog display
 names. The frontend converts separators and capitalization for readability but
 does not invent product metadata.
 
-## Phase 3 scope
+## Health, readiness, and metrics
+
+The Dashboard and System page read the backend's real observability endpoints:
+
+- `GET /health` reports process liveness and uptime.
+- `GET /ready` reports overall readiness, application lifecycle state, and the
+  backend-provided component map. A structured `503` response is displayed as
+  a not-ready/degraded state rather than being reduced to a network error.
+- `GET /api/v1/metrics` reports the current thread-safe metrics snapshot.
+
+Metrics refresh every two seconds. Health and readiness refresh together every
+five seconds. Each polling loop waits for its current request to settle before
+scheduling the next one, aborts work when its page unmounts, and preserves the
+last successful data during a background failure.
+
+The Dashboard shows a concise status and vision-metrics summary. `/system`
+shows liveness, readiness, application state, every component returned by the
+backend, and all available vision, checkout, and runtime metrics. Missing data
+uses an em dash or a clear unavailable state; the frontend does not invent
+performance thresholds. Current-value cards are used because the backend does
+not expose time-series history.
+
+The headless `smart-retail-api` mode reports model, camera, and vision pipeline
+as `disabled`; this is distinct from `unavailable`. Run `smart-retail` to see
+live FPS, inference, detection, track, and camera metrics from the native vision
+pipeline.
+
+## Current scope
 
 Routes are available at:
 
 - `/` — Dashboard
 - `/sessions` — persisted checkout-session history
 - `/sessions/:sessionId` — one session and its event history
-- `/system` — System placeholder
+- `/system` — detailed health, readiness, component, and metrics view
 
-Backend health, the Current Cart, Recent Events, and Sessions use real API data.
-Metrics, charts, camera streaming, WebSockets, authentication, and richer
-system status remain deferred.
+Backend health/readiness, Current Cart, Recent Events, Sessions, and metrics all
+use real API data. Historical charts, camera streaming, WebSockets,
+authentication, and global client-state management remain deferred.

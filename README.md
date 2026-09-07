@@ -535,7 +535,9 @@ npm run dev
 The optional `frontend/.env` file can override
 `VITE_API_BASE_URL=http://localhost:8000`; it is ignored by Git. The dashboard
 reads backend health, the live shared cart, recent persisted events, and
-checkout-session history; it does not replace the OpenCV interface. See
+checkout-session history. It also presents readiness by backend component and
+the current vision, checkout, and runtime metrics on the Dashboard and detailed
+System page; it does not replace the OpenCV interface. See
 [frontend/README.md](frontend/README.md) for endpoint details, the hardware-free
 `smart-retail-api` alternative, and frontend commands.
 
