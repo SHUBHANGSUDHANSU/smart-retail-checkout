@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router'
 
 import { EventList } from '../components/events/EventList'
+import { LoadingState } from '../components/LoadingState'
 import { useSessionDetail } from '../hooks/useSessionDetail'
 import type { CheckoutSessionDetail } from '../types/history'
 import { formatInr } from '../utils/currency'
@@ -26,6 +27,7 @@ function ValidSessionDetail({ sessionId }: { sessionId: number }) {
     <div className="page-stack">
       <header className="page-heading session-detail-heading">
         <Link className="text-link" to="/sessions">
+          <span aria-hidden="true">←</span>{' '}
           Back to Sessions
         </Link>
         <p className="eyebrow">Checkout history</p>
@@ -35,9 +37,7 @@ function ValidSessionDetail({ sessionId }: { sessionId: number }) {
 
       {isLoading && session === null ? (
         <section className="dashboard-card" aria-label="Session status">
-          <p className="history-state" role="status">
-            Loading checkout session...
-          </p>
+          <LoadingState label="Loading checkout session..." lines={3} />
         </section>
       ) : null}
 
@@ -91,7 +91,7 @@ function SessionDetailContent({ session }: { session: CheckoutSessionDetail }) {
               )}
             </dd>
           </div>
-          <div>
+          <div className="session-summary__total">
             <dt>Final total</dt>
             <dd>
               {session.final_total === null

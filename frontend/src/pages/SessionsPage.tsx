@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 
 import { DashboardCard } from '../components/DashboardCard'
+import { LoadingState } from '../components/LoadingState'
 import { useSessions } from '../hooks/useSessions'
 import type { CheckoutSession } from '../types/history'
 import { formatInr } from '../utils/currency'
@@ -16,12 +17,10 @@ export function SessionsPage() {
         <h1>Checkout Sessions</h1>
         <p>Review persisted checkout runs and open their event history.</p>
       </header>
-      <DashboardCard title="Sessions">
+      <DashboardCard title="Sessions" eyebrow="Recent records">
         <div className="session-history">
           {isLoading && sessions === null ? (
-            <p className="history-state" role="status">
-              Loading checkout sessions...
-            </p>
+            <LoadingState label="Loading checkout sessions..." lines={4} />
           ) : null}
 
           {!isLoading && error ? (
@@ -76,14 +75,17 @@ function SessionTable({ sessions }: { sessions: CheckoutSession[] }) {
                 <th scope="row">
                   <Link className="session-link" to={`/sessions/${session.id}`}>
                     Session #{session.id}
+                    <span className="session-link__arrow" aria-hidden="true">
+                      ↗
+                    </span>
                   </Link>
                 </th>
-                <td>
+                <td data-label="Started">
                   <time dateTime={session.started_at}>
                     {formatDateTime(session.started_at)}
                   </time>
                 </td>
-                <td>
+                <td data-label="Ended">
                   {session.ended_at ? (
                     <time dateTime={session.ended_at}>
                       {formatDateTime(session.ended_at)}
@@ -92,14 +94,14 @@ function SessionTable({ sessions }: { sessions: CheckoutSession[] }) {
                     <span aria-label="Not ended">—</span>
                   )}
                 </td>
-                <td className="session-table__amount">
+                <td className="session-table__amount" data-label="Final total">
                   {session.final_total === null ? (
                     <span aria-label="Final total pending">—</span>
                   ) : (
                     formatInr(session.final_total)
                   )}
                 </td>
-                <td>
+                <td data-label="Status">
                   <span
                     className={`session-status session-status--${
                       isActive ? 'active' : 'completed'

@@ -4,6 +4,7 @@ import { useCart } from '../../hooks/useCart'
 import type { CartResponse } from '../../types/cart'
 import { formatInr } from '../../utils/currency'
 import { DashboardCard } from '../DashboardCard'
+import { LoadingState } from '../LoadingState'
 import { CartItemRow } from './CartItemRow'
 import { ResetCartConfirmation } from './ResetCartConfirmation'
 
@@ -62,12 +63,10 @@ export function CurrentCart() {
   const hasItems = (cart?.items.length ?? 0) > 0
 
   return (
-    <DashboardCard title="Current Cart">
+    <DashboardCard title="Current Cart" eyebrow="Active checkout">
       <div className="current-cart">
         {isInitialLoading && cart === null ? (
-          <p className="cart-state" role="status">
-            Loading cart...
-          </p>
+          <LoadingState label="Loading cart..." lines={3} />
         ) : null}
 
         {!isInitialLoading && cart === null && loadError ? (

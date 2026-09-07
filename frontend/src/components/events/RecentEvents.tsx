@@ -1,17 +1,16 @@
 import { useRecentEvents } from '../../hooks/useRecentEvents'
 import { DashboardCard } from '../DashboardCard'
+import { LoadingState } from '../LoadingState'
 import { EventList } from './EventList'
 
 export function RecentEvents() {
   const { events, isInitialLoading, error, refresh } = useRecentEvents()
 
   return (
-    <DashboardCard title="Recent Events">
+    <DashboardCard title="Recent Events" eyebrow="Checkout activity">
       <div className="recent-events">
         {isInitialLoading && events === null ? (
-          <p className="history-state" role="status">
-            Loading checkout events...
-          </p>
+          <LoadingState label="Loading checkout events..." lines={3} />
         ) : null}
 
         {!isInitialLoading && events === null && error ? (

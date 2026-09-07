@@ -1,6 +1,7 @@
 import { useMetrics } from '../../hooks/useMetrics'
 import { formatCounter, formatFps, formatLatency } from '../../utils/metrics'
 import { DashboardCard } from '../DashboardCard'
+import { LoadingState } from '../LoadingState'
 import { MetricGrid } from './MetricGrid'
 
 export function LiveMetrics() {
@@ -25,12 +26,10 @@ export function LiveMetrics() {
     : null
 
   return (
-    <DashboardCard title="Live Metrics">
+    <DashboardCard title="Live Metrics" eyebrow="Realtime telemetry">
       <div className="observability-content">
         {isInitialLoading && metrics === null ? (
-          <p className="observability-state" role="status">
-            Loading live metrics...
-          </p>
+          <LoadingState label="Loading live metrics..." lines={2} />
         ) : null}
 
         {!isInitialLoading && metrics === null && error ? (
