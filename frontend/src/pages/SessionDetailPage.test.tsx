@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { Link, MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SessionDetailPage } from './SessionDetailPage'
@@ -153,5 +153,29 @@ describe('SessionDetailPage', () => {
     view.unmount()
 
     expect(signal?.aborted).toBe(true)
+  })
+
+  it('does not retain the previous session while navigating between details', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(sessionDetail))
+      .mockImplementationOnce(() => new Promise<Response>(() => undefined))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <MemoryRouter initialEntries={['/sessions/21']}>
+        <Link to="/sessions/22">Open session 22</Link>
+        <Routes>
+          <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('₹315')).toBeVisible()
+    fireEvent.click(screen.getByRole('link', { name: 'Open session 22' }))
+
+    expect(screen.getByRole('heading', { name: 'Session #22' })).toBeVisible()
+    expect(screen.getByText('Loading checkout session...')).toBeVisible()
+    expect(screen.queryByText('₹315')).not.toBeInTheDocument()
   })
 })

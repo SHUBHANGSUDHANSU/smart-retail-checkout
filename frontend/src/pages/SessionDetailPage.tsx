@@ -14,7 +14,9 @@ export function SessionDetailPage() {
     return <SessionNotFound />
   }
 
-  return <ValidSessionDetail sessionId={sessionId} />
+  // Route parameters can change without remounting this page. Key the detail
+  // view so data from the previous session is never shown under a new ID.
+  return <ValidSessionDetail key={sessionId} sessionId={sessionId} />
 }
 
 function ValidSessionDetail({ sessionId }: { sessionId: number }) {
