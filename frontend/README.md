@@ -62,7 +62,7 @@ shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
 browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
 a different local frontend origin. This policy is not API authentication;
-The frontend uses `GET /health`, `GET /api/v1/cart`,
+the frontend uses `GET /health`, `GET /api/v1/cart`,
 `POST /api/v1/cart/reset`, and the checkout-history endpoints described below.
 
 Useful commands:
