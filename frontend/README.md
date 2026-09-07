@@ -142,6 +142,27 @@ as `disabled`; this is distinct from `unavailable`. Run `smart-retail` to see
 live FPS, inference, detection, track, and camera metrics from the native vision
 pipeline.
 
+## Visual design and accessibility
+
+The interface uses a lightweight CSS design system rather than a component
+framework. Central tokens define the dark surfaces, borders, text hierarchy,
+semantic status colors, spacing, radii, shadows, and transition timing. The
+visual direction is deliberately restrained and data-first: operational status
+has the highest Dashboard priority, destructive cart reset remains secondary,
+and metrics emphasize current values without inventing trends.
+
+The layout is tested at large desktop, laptop, tablet, and narrow mobile
+widths. The sidebar becomes a compact top navigation, Dashboard cards reflow
+without horizontal overflow, metric grids reduce their column count, and the
+Sessions table becomes a stacked record layout on small screens. Session data
+remains semantic table markup for assistive technology.
+
+Navigation exposes the active page with `aria-current`, status meaning is
+always written as text, focus rings remain visible, and the reset confirmation
+is keyboard operable. Loading placeholders retain accessible status text and
+are hidden from assistive technology. Motion is subtle and is effectively
+disabled when `prefers-reduced-motion` is enabled.
+
 ## Current scope
 
 Routes are available at:

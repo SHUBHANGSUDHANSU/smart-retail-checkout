@@ -16,12 +16,20 @@ export function DashboardPage() {
         <p>Realtime cashierless checkout monitoring dashboard</p>
       </header>
       <div className="dashboard-grid">
-        <CurrentCart />
-        <DashboardCard title="System Status">
-          <SystemStatusSummary state={systemHealth} />
-        </DashboardCard>
-        <RecentEvents />
-        <LiveMetrics />
+        <div className="dashboard-grid__status">
+          <DashboardCard title="System Status" eyebrow="Operations">
+            <SystemStatusSummary state={systemHealth} />
+          </DashboardCard>
+        </div>
+        <div className="dashboard-grid__cart">
+          <CurrentCart />
+        </div>
+        <div className="dashboard-grid__events">
+          <RecentEvents />
+        </div>
+        <div className="dashboard-grid__metrics">
+          <LiveMetrics />
+        </div>
       </div>
     </div>
   )

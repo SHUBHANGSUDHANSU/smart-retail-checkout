@@ -1,4 +1,5 @@
 import { DashboardCard } from '../components/DashboardCard'
+import { LoadingState } from '../components/LoadingState'
 import { MetricGrid, type MetricItem } from '../components/observability/MetricGrid'
 import {
   StatusIndicator,
@@ -28,19 +29,19 @@ export function SystemPage() {
       </header>
 
       <div className="system-overview-grid">
-        <DashboardCard title="Liveness">
+        <DashboardCard title="Liveness" eyebrow="Process">
           <HealthOverview state={healthState} />
         </DashboardCard>
-        <DashboardCard title="Readiness">
+        <DashboardCard title="Readiness" eyebrow="Checkout service">
           <ReadinessOverview state={healthState} />
         </DashboardCard>
       </div>
 
-      <DashboardCard title="Component Readiness">
+      <DashboardCard title="Component Status" eyebrow="Dependencies">
         <ComponentReadiness state={healthState} />
       </DashboardCard>
 
-      <DashboardCard title="Operational Metrics">
+      <DashboardCard title="Operational Metrics" eyebrow="Telemetry">
         <OperationalMetrics state={metricsState} />
       </DashboardCard>
     </div>
@@ -143,7 +144,7 @@ function ComponentReadiness({ state }: { state: HealthState }) {
 
 function OperationalMetrics({ state }: { state: MetricsState }) {
   if (state.isInitialLoading && state.metrics === null) {
-    return <p className="observability-state">Loading operational metrics...</p>
+    return <LoadingState label="Loading operational metrics..." lines={4} />
   }
   if (state.metrics === null) {
     return (

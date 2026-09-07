@@ -9,6 +9,27 @@ afterEach(() => {
 })
 
 describe('DashboardPage backend connection', () => {
+  it('places operational status before checkout details in reading order', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(() => new Promise<Response>(() => undefined)),
+    )
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    )
+
+    const headings = screen.getAllByRole('heading', { level: 2 })
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      'System Status',
+      'Current Cart',
+      'Recent Events',
+      'Live Metrics',
+    ])
+  })
+
   it('shows contained loading states while observability is pending', () => {
     vi.stubGlobal(
       'fetch',
