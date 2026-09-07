@@ -5,7 +5,7 @@ import type { HealthResponse, ReadinessResponse } from '../types/api'
 
 export const HEALTH_POLL_INTERVAL_MS = 5_000
 
-interface SystemHealthState {
+export interface SystemHealthState {
   health: HealthResponse | null
   readiness: ReadinessResponse | null
   isInitialLoading: boolean
