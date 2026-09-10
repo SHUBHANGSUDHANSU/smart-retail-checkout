@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appConfig } from '../config'
-import { ApiError, getHealth } from './api'
+import {
+  ApiError,
+  addDemoItem,
+  getDemoManifest,
+  getHealth,
+  removeDemoItem,
+} from './api'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -86,5 +92,92 @@ describe('getHealth', () => {
         statusCode: undefined,
       }),
     )
+  })
+})
+
+describe('demo API', () => {
+  const manifest = {
+    mode: 'demo',
+    vision_active: false,
+    message: 'Using simulated checkout events. Computer vision is not active.',
+    products: [
+      {
+        product_id: 'bottle',
+        product_name: 'Water Bottle',
+        unit_price: 40,
+      },
+    ],
+  }
+
+  it('discovers the enabled demo catalog', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify(manifest), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getDemoManifest()).resolves.toEqual(manifest)
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${appConfig.apiBaseUrl}/api/v1/demo`,
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('uses encoded product paths for add and remove commands', async () => {
+    const mutation = {
+      status: 'added',
+      track_id: 1_000_000,
+      product: manifest.products[0],
+      cart: {
+        items: [
+          {
+            ...manifest.products[0],
+            quantity: 1,
+            subtotal: 40,
+          },
+        ],
+        total_quantity: 1,
+        total: 40,
+      },
+    }
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mutation), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ...mutation, status: 'removed' }),
+          { status: 200 },
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await addDemoItem('water bottle')
+    await removeDemoItem('water bottle')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${appConfig.apiBaseUrl}/api/v1/demo/items/water%20bottle`,
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${appConfig.apiBaseUrl}/api/v1/demo/items/water%20bottle/remove`,
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('rejects malformed demo payloads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({ ...manifest, vision_active: true }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    await expect(getDemoManifest()).rejects.toThrow('invalid demo mode data')
   })
 })

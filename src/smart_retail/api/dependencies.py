@@ -6,9 +6,13 @@ from typing import Annotated, Protocol, cast, runtime_checkable
 
 from fastapi import Depends, Request
 
-from smart_retail.application_state import CartResetResult, SessionHistory
+from smart_retail.application_state import (
+    CartResetResult,
+    DemoCartMutationResult,
+    SessionHistory,
+)
 from smart_retail.domain.events import CartEvent
-from smart_retail.domain.models import CartSnapshot, CheckoutSession
+from smart_retail.domain.models import CartSnapshot, CheckoutSession, Product
 from smart_retail.health import LivenessSnapshot, ReadinessSnapshot
 from smart_retail.metrics import MetricsSnapshot
 from smart_retail.realtime.broadcaster import RealtimeSubscription
@@ -48,3 +52,21 @@ def get_runtime(request: Request) -> APIRuntime:
 
 
 RuntimeDependency = Annotated[APIRuntime, Depends(get_runtime)]
+
+
+@runtime_checkable
+class DemoAPIRuntime(Protocol):
+    """Synthetic commands available only in an explicitly enabled demo runtime."""
+
+    def get_demo_products(self) -> tuple[Product, ...]: ...
+
+    def add_demo_item(self, product_id: str) -> DemoCartMutationResult: ...
+
+    def remove_demo_item(self, product_id: str) -> DemoCartMutationResult: ...
+
+
+def get_demo_runtime(request: Request) -> DemoAPIRuntime:
+    return cast(DemoAPIRuntime, request.app.state.runtime)
+
+
+DemoRuntimeDependency = Annotated[DemoAPIRuntime, Depends(get_demo_runtime)]

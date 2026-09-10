@@ -124,9 +124,19 @@ class ContinuousIntegrationConfigurationTests(unittest.TestCase):
 
         self.assertEqual(workflow.count("--cov-fail-under=0"), 2)
 
-    def test_unknown_repository_does_not_publish_a_speculative_badge(self) -> None:
+    def test_readme_badge_targets_the_published_repository_workflow(self) -> None:
         readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertNotIn("actions/workflows/ci.yml/badge.svg", readme)
+        badge = (
+            "https://github.com/SHUBHANGSUDHANSU/smart-retail-checkout/"
+            "actions/workflows/ci.yml/badge.svg"
+        )
+        workflow = (
+            "https://github.com/SHUBHANGSUDHANSU/smart-retail-checkout/"
+            "actions/workflows/ci.yml"
+        )
+
+        self.assertIn(f"[![CI]({badge})]({workflow})", readme)
+        self.assertEqual(readme.count("actions/workflows/ci.yml/badge.svg"), 1)
 
     def test_testing_documentation_explains_ci_scope_and_local_commands(self) -> None:
         guide = TESTING_GUIDE_PATH.read_text(encoding="utf-8")

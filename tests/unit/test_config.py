@@ -31,6 +31,7 @@ class ApplicationConfigurationTests(unittest.TestCase):
         self.assertEqual(config.realtime.queue_capacity, 64)
         self.assertEqual(config.realtime.heartbeat_seconds, 15.0)
         self.assertEqual(config.realtime.metrics_interval_seconds, 1.0)
+        self.assertFalse(config.demo.enabled)
         with self.assertRaises(dataclasses.FrozenInstanceError):
             config.camera.camera_index = 1
 
@@ -72,6 +73,7 @@ class ApplicationConfigurationTests(unittest.TestCase):
                 "SMART_RETAIL_REALTIME_QUEUE_CAPACITY": "32",
                 "SMART_RETAIL_REALTIME_HEARTBEAT_SECONDS": "12.5",
                 "SMART_RETAIL_REALTIME_METRICS_INTERVAL_SECONDS": "0.75",
+                "SMART_RETAIL_DEMO_MODE": "true",
             }
         )
 
@@ -112,6 +114,7 @@ class ApplicationConfigurationTests(unittest.TestCase):
         self.assertEqual(config.realtime.queue_capacity, 32)
         self.assertEqual(config.realtime.heartbeat_seconds, 12.5)
         self.assertEqual(config.realtime.metrics_interval_seconds, 0.75)
+        self.assertTrue(config.demo.enabled)
 
     def test_invalid_numeric_types_fail_with_environment_name(self) -> None:
         invalid_values = (
@@ -218,6 +221,9 @@ class ApplicationConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigurationError, "must be a boolean"):
             load_config({"SMART_RETAIL_API_ENABLED": "sometimes"})
 
+        with self.assertRaisesRegex(ConfigurationError, "DEMO_MODE"):
+            load_config({"SMART_RETAIL_DEMO_MODE": "sometimes"})
+
     def test_missing_local_configuration_files_are_rejected(self) -> None:
         invalid_paths = (
             "SMART_RETAIL_TRACKER_CONFIG_PATH",
@@ -242,7 +248,13 @@ class ApplicationConfigurationTests(unittest.TestCase):
         self.assertIn("model=best.pt", summary)
         self.assertIn("logging=INFO/text/console+file", summary)
         self.assertIn("database=enabled:history.db", summary)
+        self.assertIn("mode=vision", summary)
         self.assertNotIn("/private", summary)
+
+        demo_summary = load_config({"SMART_RETAIL_DEMO_MODE": "true"}).safe_summary(
+            active_device="disabled"
+        )
+        self.assertIn("mode=demo", demo_summary)
 
 
 if __name__ == "__main__":

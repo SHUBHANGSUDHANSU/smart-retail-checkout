@@ -7,7 +7,7 @@ from enum import Enum
 
 from smart_retail.checkout.event_engine import CheckoutStateSnapshot, CheckoutUpdate
 from smart_retail.domain.events import CartEvent
-from smart_retail.domain.models import CartSnapshot, CheckoutSession
+from smart_retail.domain.models import CartSnapshot, CheckoutSession, Product
 
 
 class ApplicationState(str, Enum):
@@ -27,6 +27,15 @@ class CartResetResult:
     """Result of resetting shared checkout state from any presentation."""
 
     removed_track_count: int
+    cart: CartSnapshot
+
+
+@dataclass(frozen=True, slots=True)
+class DemoCartMutationResult:
+    """Result of one explicitly synthetic demo cart command."""
+
+    track_id: int
+    product: Product
     cart: CartSnapshot
 
 

@@ -11,16 +11,18 @@ from typing import TypeVar, cast
 
 from fastapi import FastAPI
 
+from smart_retail.api.errors import ResourceNotFoundError
 from smart_retail.api.factory import create_api_app
 from smart_retail.application_state import (
     ApplicationNotReadyError,
     ApplicationState,
     CartResetResult,
+    DemoCartMutationResult,
     SessionHistory,
 )
 from smart_retail.checkout.cart import CartService
 from smart_retail.config import AppConfig, load_config
-from smart_retail.domain.events import CartEvent, CartEventType
+from smart_retail.domain.events import CartEvent, CartEventType, CheckoutEventType
 from smart_retail.domain.models import CartSnapshot, CheckoutSession, Product
 from smart_retail.health import (
     HealthComponent,
@@ -74,6 +76,8 @@ class HeadlessAPIRuntime:
         self._products = dict(products)
         self._repository = repository
         self._session_id: int | None = None
+        self._next_demo_track_id = 1_000_000
+        self._demo_tracks: dict[str, list[int]] = {}
         self._state_lock = threading.Lock()
         self._checkout_lock = threading.Lock()
         self._lifecycle_lock = threading.Lock()
@@ -144,6 +148,8 @@ class HeadlessAPIRuntime:
             "application_started",
             "Headless checkout API started",
             database_enabled=self.config.database.enabled,
+            mode="demo" if self.config.demo.enabled else "api_only",
+            vision="disabled",
         )
 
     def stop(self) -> None:
@@ -256,6 +262,7 @@ class HeadlessAPIRuntime:
                     "API reset requires a running checkout application."
                 )
             removed_count = self.cart.clear()
+            self._demo_tracks.clear()
             snapshot = self.cart.get_snapshot()
             self.metrics.record_cart_reset(snapshot)
 
@@ -290,7 +297,160 @@ class HeadlessAPIRuntime:
                 persisted_event=persisted_event,
             )
         )
+        if self.config.demo.enabled:
+            self.realtime.publish_metrics(self.metrics.get_snapshot())
         return CartResetResult(removed_count, snapshot)
+
+    def get_demo_products(self) -> tuple[Product, ...]:
+        """Return the configured catalog in its stable display order."""
+        return tuple(self._products.values())
+
+    def add_demo_item(self, product_id: str) -> DemoCartMutationResult:
+        """Add one synthetic physical item through the normal business path."""
+        product_class, product = self._find_demo_product(product_id)
+        event_timestamp = time.time()
+        with self._checkout_lock:
+            self._require_running_demo()
+            track_id = self._next_demo_track_id
+            self._next_demo_track_id += 1
+            if not self.cart.add_item(track_id, product_class):
+                raise RuntimeError("Demo track allocation did not change cart state.")
+            self._demo_tracks.setdefault(product_id, []).append(track_id)
+            snapshot = self.cart.get_snapshot()
+            self.metrics.record_checkout_event(CheckoutEventType.ENTER)
+            self.metrics.record_cart_addition(snapshot)
+
+        persisted_event = self._record_demo_cart_event(
+            event_type=CartEventType.ADD,
+            timestamp=event_timestamp,
+            track_id=track_id,
+            product=product,
+        )
+        self._publish_demo_mutation(
+            event_type=CartEventType.ADD,
+            timestamp=event_timestamp,
+            track_id=track_id,
+            product=product,
+            snapshot=snapshot,
+            persisted_event=persisted_event,
+        )
+        return DemoCartMutationResult(track_id, product, snapshot)
+
+    def remove_demo_item(self, product_id: str) -> DemoCartMutationResult:
+        """Remove one exact synthetic track for a selected product."""
+        _, product = self._find_demo_product(product_id)
+        event_timestamp = time.time()
+        with self._checkout_lock:
+            self._require_running_demo()
+            product_tracks = self._demo_tracks.get(product_id)
+            if not product_tracks:
+                raise ResourceNotFoundError(
+                    "demo_item_not_found",
+                    f"No demo {product.name} is currently in the cart.",
+                )
+            track_id = product_tracks.pop()
+            if not product_tracks:
+                self._demo_tracks.pop(product_id, None)
+            if not self.cart.remove_item(track_id):
+                raise RuntimeError("Demo track was missing from the shared cart.")
+            snapshot = self.cart.get_snapshot()
+            self.metrics.record_checkout_event(CheckoutEventType.EXIT)
+            self.metrics.record_cart_removal(snapshot)
+
+        persisted_event = self._record_demo_cart_event(
+            event_type=CartEventType.REMOVE,
+            timestamp=event_timestamp,
+            track_id=track_id,
+            product=product,
+        )
+        self._publish_demo_mutation(
+            event_type=CartEventType.REMOVE,
+            timestamp=event_timestamp,
+            track_id=track_id,
+            product=product,
+            snapshot=snapshot,
+            persisted_event=persisted_event,
+        )
+        return DemoCartMutationResult(track_id, product, snapshot)
+
+    def _find_demo_product(self, product_id: str) -> tuple[str, Product]:
+        for product_class, product in self._products.items():
+            if product.product_id == product_id:
+                return product_class, product
+        raise ResourceNotFoundError(
+            "demo_product_not_found",
+            "The requested demo product is not supported.",
+        )
+
+    def _require_running_demo(self) -> None:
+        if not self.config.demo.enabled:
+            raise ApplicationNotReadyError("Demo mode is not enabled.")
+        if (
+            self.health.get_readiness().application_state
+            is not ApplicationState.RUNNING
+        ):
+            raise ApplicationNotReadyError(
+                "Demo commands require a running checkout application."
+            )
+
+    def _record_demo_cart_event(
+        self,
+        *,
+        event_type: CartEventType,
+        timestamp: float,
+        track_id: int,
+        product: Product,
+    ) -> CartEvent | None:
+        repository, session_id = self._persistence_snapshot()
+        if repository is None or session_id is None:
+            return None
+        try:
+            return repository.record_cart_event(
+                session_id=session_id,
+                event_type=event_type,
+                timestamp=timestamp,
+                track_id=track_id,
+                product_id=product.product_id,
+                unit_price=product.unit_price,
+            )
+        except PersistenceError:
+            self.metrics.record_persistence_error()
+            self.health.mark_unavailable(HealthComponent.DATABASE)
+            raise
+
+    def _publish_demo_mutation(
+        self,
+        *,
+        event_type: CartEventType,
+        timestamp: float,
+        track_id: int,
+        product: Product,
+        snapshot: CartSnapshot,
+        persisted_event: CartEvent | None,
+    ) -> None:
+        action = "added" if event_type is CartEventType.ADD else "removed"
+        log_event(
+            self.logger,
+            logging.INFO,
+            f"demo_cart_item_{action}",
+            f"Demo cart item {action}",
+            track_id=track_id,
+            product=product.name,
+            cart_total=snapshot.total,
+            source="demo",
+        )
+        self.realtime.publish_cart(snapshot)
+        self.realtime.publish_checkout_event(
+            RealtimeCheckoutActivity.from_mutation(
+                event_type=event_type,
+                timestamp=timestamp,
+                track_id=track_id,
+                product_id=product.product_id,
+                unit_price=product.unit_price,
+                persisted_event=persisted_event,
+            )
+        )
+        self.realtime.publish_metrics(self.metrics.get_snapshot())
 
     def get_cart_snapshot(self) -> CartSnapshot:
         return self.cart.get_snapshot()
@@ -408,6 +568,7 @@ def create_service_app(
         runtime,
         allowed_origins=runtime_config.api.cors_allowed_origins,
         lifespan=lifespan,
+        demo_enabled=runtime_config.demo.enabled,
     )
     application.state.runtime = runtime
     return application
@@ -421,6 +582,23 @@ def main() -> int:
 
     config = load_config()
     logger = configure_logging(config.logging)
+    frontend_url = (
+        config.api.cors_allowed_origins[0]
+        if config.api.cors_allowed_origins
+        else "not_configured"
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "startup_preflight_complete",
+        "Smart Retail Checkout API preflight complete",
+        mode="demo" if config.demo.enabled else "api_only",
+        camera="disabled",
+        model="disabled",
+        database=config.database.path.name if config.database.enabled else "disabled",
+        api=f"http://{config.api.host}:{config.api.port}",
+        frontend=frontend_url,
+    )
     application = create_service_app(config, logger)
     runtime = cast(HeadlessAPIRuntime, application.state.runtime)
     server = ShutdownAwareServer(

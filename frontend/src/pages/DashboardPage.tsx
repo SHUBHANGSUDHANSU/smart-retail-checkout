@@ -1,6 +1,7 @@
 import { DashboardCard } from '../components/DashboardCard'
 import { CurrentCart } from '../components/cart/CurrentCart'
 import { RecentEvents } from '../components/events/RecentEvents'
+import { DemoControls } from '../components/demo/DemoControls'
 import { LiveMetrics } from '../components/observability/LiveMetrics'
 import { SystemStatusSummary } from '../components/observability/SystemStatusSummary'
 import { useSystemHealth } from '../hooks/useSystemHealth'
@@ -15,6 +16,7 @@ export function DashboardPage() {
         <h1>Smart Retail Checkout</h1>
         <p>Realtime cashierless checkout monitoring dashboard</p>
       </header>
+      <DemoControls />
       <div className="dashboard-grid">
         <div className="dashboard-grid__status">
           <DashboardCard title="System Status" eyebrow="Operations">

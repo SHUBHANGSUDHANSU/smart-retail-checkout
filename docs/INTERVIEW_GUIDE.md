@@ -154,6 +154,28 @@ generated automatically. Crucially, handlers only read or command application
 services; they never run YOLO inference. The API depends on a small structural
 runtime protocol shared by the native and headless modes.
 
+## Why React?
+
+OpenCV is effective for annotating frames, but it is not a good surface for
+searchable session history, API state, or responsive operational diagnostics.
+React and TypeScript provide a separate operator dashboard with typed API and
+realtime contracts while keeping browser concerns out of the vision loop.
+
+## Why SSE instead of WebSockets?
+
+Most live traffic is one-way: the server publishes cart snapshots, checkout
+events, and metrics to the browser. SSE fits that shape, works with normal HTTP,
+has native browser reconnection, and is simpler than a bidirectional socket
+protocol. Commands such as reset and demo add/remove remain REST `POST` calls.
+
+## How does fallback polling work?
+
+Each page first loads a REST snapshot, then applies messages from one shared
+`EventSource`. While SSE is live, regular cart, event, and metric polling stops.
+If the connection is unavailable, bounded non-overlapping five-second REST
+reads preserve usability. Reconnect triggers reconciliation so a missed message
+cannot permanently desynchronize the browser.
+
 ## What race condition existed?
 
 One concrete readiness race involved an in-flight SQLite history read. A
@@ -236,6 +258,31 @@ refund workflows, durable multi-instance event processing, stronger database
 and retention controls, model/data monitoring, security hardening, human review
 for ambiguous events, and store-operational fallback procedures.
 
+## How would the architecture scale to multiple store instances?
+
+Each store edge process would publish durable, store-scoped events rather than
+sharing an in-memory broadcaster. A central service would partition by store
+and checkout session, make consumers idempotent, persist an auditable sequence,
+and expose authenticated APIs. Cross-instance ownership and recovery would
+need explicit protocols rather than Python locks.
+
+## Where would Redis pub/sub fit?
+
+Redis could replace the in-process SSE broadcaster between application
+instances and API workers. Cart and checkout services would publish typed
+events to store-scoped channels; SSE workers would subscribe and fan them out
+to browsers. For events that must survive outages, Redis Streams or a durable
+broker would be preferable to ephemeral pub/sub.
+
+## How would you support real SKUs?
+
+I would collect and label store-specific images, split them without near-
+duplicate leakage, fine-tune a pretrained detector, and version the model with
+its class-to-product catalog. Evaluation would cover lighting, distance,
+rotation, occlusion, packaging changes, and confusing neighboring SKUs. A real
+store would also need sensor fusion and operational review rather than treating
+one visual prediction as a billable fact.
+
 ## Why is this only an Amazon-Go-style simulation?
 
 It demonstrates the concept of automatically translating observed movement into
@@ -259,3 +306,38 @@ The truthful boundary is important: this demonstrates an Amazon-Go-style event
 flow, not Amazon Go equivalence. A single RGB webcam and motion tracker cannot
 provide production-grade SKU identity, customer association, sensor fusion, or
 loss-prevention accuracy.
+
+## Resume-ready description
+
+**One line**
+
+Built a local vision-assisted checkout simulation using Python, YOLOv8,
+ByteTrack, FastAPI, SQLite, SSE, React, and TypeScript, with deterministic
+checkout state, observability, and hardware-free CI.
+
+**Resume bullets**
+
+- Designed a modular realtime pipeline that converts YOLOv8 detections and
+  ByteTrack identities into debounced checkout-zone events and a duplicate-
+  resistant, track-ID-keyed shopping cart.
+- Exposed thread-safe cart, session, health, and metrics state through FastAPI,
+  persisted meaningful events in SQLite, and delivered idempotent live updates
+  to a typed React dashboard through bounded SSE fan-out.
+- Added graceful lifecycle management, structured logs, configuration
+  validation, an explicitly labeled hardware-free demo mode, and deterministic
+  backend/frontend CI without webcam, GPU, GUI, or cloud dependencies.
+
+**60-second explanation**
+
+> I built Smart Retail Checkout to explore the gap between detecting objects
+> and maintaining trustworthy business state. A Mac webcam feeds YOLOv8n, then
+> ByteTrack associates detections across frames. A normalized checkout-zone
+> state machine uses hysteresis, confirmation frames, and track expiry to turn
+> noisy movement into ENTER and EXIT events. CartService keys physical items by
+> track ID, so repeated frames cannot create repeated charges, while two IDs of
+> the same class aggregate to quantity two. Meaningful changes are stored in
+> SQLite and published through FastAPI and a bounded SSE broadcaster to a React
+> operations dashboard. I separated domain logic from camera, model, database,
+> and UI adapters, which lets CI test cart, API, persistence, concurrency, and
+> lifecycle behavior without hardware. It remains a one-camera simulation with
+> broad COCO classes—not a production Amazon Go equivalent.

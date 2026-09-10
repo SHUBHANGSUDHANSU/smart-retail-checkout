@@ -152,6 +152,21 @@ class ApplicationCleanupTests(unittest.TestCase):
         ):
             self.assertEqual(main(), 0)
 
+    def test_vision_entrypoint_rejects_demo_mode_before_model_or_camera_setup(
+        self,
+    ) -> None:
+        config = load_config({"SMART_RETAIL_DEMO_MODE": "true"})
+        logger = logging.Logger("test.main.demo")
+        logger.addHandler(logging.NullHandler())
+        with (
+            patch("smart_retail.app.load_config", return_value=config),
+            patch("smart_retail.app.configure_logging", return_value=logger),
+            patch("smart_retail.app.build_application") as build_application_mock,
+        ):
+            self.assertEqual(main(), 2)
+
+        build_application_mock.assert_not_called()
+
     def test_quit_releases_camera_and_closes_ui(self) -> None:
         config = load_config({})
         frame = np.zeros((480, 640, 3), dtype=np.uint8)

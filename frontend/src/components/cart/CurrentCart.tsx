@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useCart } from '../../hooks/useCart'
+import { useDemoMode } from '../../demo/DemoModeContext'
 import type { CartResponse } from '../../types/cart'
 import { formatInr } from '../../utils/currency'
 import { DashboardCard } from '../DashboardCard'
@@ -9,6 +10,7 @@ import { CartItemRow } from './CartItemRow'
 import { ResetCartConfirmation } from './ResetCartConfirmation'
 
 export function CurrentCart() {
+  const { manifest: demoManifest } = useDemoMode()
   const {
     cart,
     isInitialLoading,
@@ -116,7 +118,11 @@ export function CurrentCart() {
             ) : (
               <div className="cart-empty">
                 <strong>Cart is empty</strong>
-                <p>Move a detected product into the checkout zone to add it.</p>
+                <p>
+                  {demoManifest
+                    ? 'Use Demo controls to add a simulated checkout item.'
+                    : 'Move a detected product into the checkout zone to add it.'}
+                </p>
               </div>
             )}
 

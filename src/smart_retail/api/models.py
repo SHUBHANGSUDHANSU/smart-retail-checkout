@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from smart_retail.domain.events import CartEvent, CartEventType
-from smart_retail.domain.models import CartItem, CartSnapshot, CheckoutSession
+from smart_retail.domain.models import CartItem, CartSnapshot, CheckoutSession, Product
 from smart_retail.health import LivenessSnapshot, ReadinessSnapshot
 from smart_retail.metrics import MetricsSnapshot
 from smart_retail.realtime.models import (
@@ -107,6 +108,34 @@ class CartResponse(BaseModel):
 class CartResetResponse(BaseModel):
     status: str
     removed_track_count: int = Field(ge=0)
+    cart: CartResponse
+
+
+class DemoProductResponse(BaseModel):
+    product_id: str
+    product_name: str
+    unit_price: int = Field(ge=0)
+
+    @classmethod
+    def from_domain(cls, product: Product) -> DemoProductResponse:
+        return cls(
+            product_id=product.product_id,
+            product_name=product.name,
+            unit_price=product.unit_price,
+        )
+
+
+class DemoManifestResponse(BaseModel):
+    mode: Literal["demo"]
+    vision_active: Literal[False]
+    message: str
+    products: list[DemoProductResponse]
+
+
+class DemoMutationResponse(BaseModel):
+    status: Literal["added", "removed"]
+    track_id: int = Field(ge=1)
+    product: DemoProductResponse
     cart: CartResponse
 
 

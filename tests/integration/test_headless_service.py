@@ -76,6 +76,8 @@ class HeadlessAPIServiceTests(unittest.TestCase):
             self.assertEqual(events.json()["events"][0]["event_type"], "RESET")
             self.assertEqual(metrics.json()["cart_resets_total"], 1)
             self.assertIn("/api/v1/metrics", openapi.json()["paths"])
+            self.assertNotIn("/api/v1/demo", openapi.json()["paths"])
+            self.assertEqual(client.get("/api/v1/demo").status_code, 404)
 
         repository = SQLiteCheckoutRepository(self.database_path)
         repository.initialize(load_product_catalog(self.config.products_config_path))
@@ -84,6 +86,98 @@ class HeadlessAPIServiceTests(unittest.TestCase):
         self.assertIsNotNone(closed_session.ended_at)
         self.assertEqual(closed_session.final_total, 0)
         repository.close()
+
+    def test_demo_routes_reuse_cart_persistence_metrics_and_realtime(self) -> None:
+        demo_config = load_config(
+            {
+                "SMART_RETAIL_DEMO_MODE": "true",
+                "SMART_RETAIL_DATABASE_PATH": str(self.database_path),
+            }
+        )
+        application = create_service_app(demo_config, quiet_logger())
+
+        with TestClient(application) as client:
+            runtime = application.state.runtime
+            subscription = runtime.subscribe_realtime()
+
+            manifest = client.get("/api/v1/demo")
+            first_add = client.post("/api/v1/demo/items/bottle")
+            second_add = client.post("/api/v1/demo/items/bottle")
+            remove = client.post("/api/v1/demo/items/bottle/remove")
+
+            self.assertEqual(manifest.status_code, 200)
+            self.assertEqual(manifest.json()["mode"], "demo")
+            self.assertFalse(manifest.json()["vision_active"])
+            self.assertEqual(manifest.json()["products"][0]["product_id"], "bottle")
+            self.assertEqual(first_add.status_code, 200)
+            self.assertEqual(first_add.json()["cart"]["total_quantity"], 1)
+            self.assertEqual(second_add.json()["cart"]["total_quantity"], 2)
+            self.assertNotEqual(
+                first_add.json()["track_id"], second_add.json()["track_id"]
+            )
+            self.assertEqual(remove.json()["cart"]["total_quantity"], 1)
+
+            events = runtime.get_recent_cart_events(limit=3)
+            self.assertEqual(
+                [event.event_type for event in events],
+                [CartEventType.REMOVE, CartEventType.ADD, CartEventType.ADD],
+            )
+            metrics = runtime.get_metrics_snapshot()
+            self.assertEqual(metrics.checkout_enter_events_total, 2)
+            self.assertEqual(metrics.checkout_exit_events_total, 1)
+            self.assertEqual(metrics.cart_additions_total, 2)
+            self.assertEqual(metrics.cart_removals_total, 1)
+            self.assertEqual(metrics.current_cart_items, 1)
+
+            messages = [subscription.get_nowait() for _ in range(9)]
+            self.assertEqual(
+                [message.event_type for message in messages],
+                [
+                    RealtimeEventType.CART_UPDATED,
+                    RealtimeEventType.CHECKOUT_EVENT,
+                    RealtimeEventType.METRICS_UPDATED,
+                ]
+                * 3,
+            )
+
+    def test_demo_commands_reject_unknown_or_absent_items(self) -> None:
+        demo_config = load_config(
+            {
+                "SMART_RETAIL_DEMO_MODE": "true",
+                "SMART_RETAIL_DATABASE_PATH": str(self.database_path),
+            }
+        )
+        application = create_service_app(demo_config, quiet_logger())
+
+        with TestClient(application) as client:
+            unknown = client.post("/api/v1/demo/items/not-a-product")
+            absent = client.post("/api/v1/demo/items/apple/remove")
+
+            self.assertEqual(unknown.status_code, 404)
+            self.assertEqual(unknown.json()["code"], "demo_product_not_found")
+            self.assertEqual(absent.status_code, 404)
+            self.assertEqual(absent.json()["code"], "demo_item_not_found")
+            invalid = client.post(f"/api/v1/demo/items/{'x' * 65}")
+            self.assertEqual(invalid.status_code, 422)
+            self.assertEqual(invalid.json()["code"], "validation_error")
+
+    def test_reset_forgets_demo_tracks(self) -> None:
+        demo_config = load_config(
+            {
+                "SMART_RETAIL_DEMO_MODE": "true",
+                "SMART_RETAIL_DATABASE_PATH": str(self.database_path),
+            }
+        )
+        application = create_service_app(demo_config, quiet_logger())
+
+        with TestClient(application) as client:
+            client.post("/api/v1/demo/items/apple")
+            reset = client.post("/api/v1/cart/reset")
+            remove = client.post("/api/v1/demo/items/apple/remove")
+
+            self.assertEqual(reset.status_code, 200)
+            self.assertEqual(reset.json()["cart"]["total_quantity"], 0)
+            self.assertEqual(remove.status_code, 404)
 
     def test_runtime_stop_is_idempotent(self) -> None:
         products = load_product_catalog(self.config.products_config_path)

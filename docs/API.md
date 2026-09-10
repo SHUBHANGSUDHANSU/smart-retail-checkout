@@ -18,6 +18,17 @@ The hardware-free API service is useful for local API work and containers:
 smart-retail-api
 ```
 
+For explicitly synthetic local demo commands, enable demo mode before starting
+the same hardware-free service:
+
+```bash
+SMART_RETAIL_DEMO_MODE=true \
+SMART_RETAIL_DATABASE_PATH=data/smart_retail_demo.db \
+smart-retail-api
+```
+
+The convenience `scripts/run-demo.sh` also starts the React development server.
+
 Both use `http://127.0.0.1:8000` by default. Override the bind address or port
 through `SMART_RETAIL_API_HOST` and `SMART_RETAIL_API_PORT`. A non-loopback bind
 emits a warning because authentication is intentionally absent.
@@ -32,6 +43,10 @@ The embedded API and OpenCV interface share one native
 `SmartRetailApplication`. The headless entry point uses `HeadlessAPIRuntime`,
 which owns a separate cart, health state, metrics service, and SQLite session.
 Starting both processes does not make their in-memory carts synchronize.
+
+Demo mode uses the headless runtime and never initializes camera, model,
+tracker, or OpenCV resources. Its mutation router is registered only while
+`SMART_RETAIL_DEMO_MODE=true`.
 
 Routes depend on the `APIRuntime` protocol rather than either concrete runtime.
 That protocol contains only snapshot, reset, and history operations required by
@@ -50,6 +65,17 @@ the HTTP presentation layer.
 | `GET` | `/api/v1/sessions/{session_id}` | `200` | One positive session ID and its ordered events |
 | `GET` | `/api/v1/metrics` | `200` | Thread-safe current metrics snapshot |
 | `GET` | `/api/v1/stream` | `200` | Long-lived SSE stream of typed live updates |
+
+When demo mode is enabled, these additional routes are registered:
+
+| Method | Path | Success | Purpose |
+|---|---|---:|---|
+| `GET` | `/api/v1/demo` | `200` | Mode declaration and configured product catalog |
+| `POST` | `/api/v1/demo/items/{product_id}` | `200` | Add one synthetic physical item through application services |
+| `POST` | `/api/v1/demo/items/{product_id}/remove` | `200` | Remove one exact active synthetic item |
+
+They are absent—not merely disabled—from normal routing and OpenAPI. Reset
+continues to use `POST /api/v1/cart/reset`.
 
 All currency fields are integer rupees. Timestamps are serialized as UTC ISO
 8601 values.
@@ -185,6 +211,29 @@ The response includes the counters, gauges, and rolling averages documented in
 [METRICS.md](METRICS.md), including frame counts, active tracks, FPS, inference
 latency, checkout/cart event counts, current cart values, and error counters.
 
+### Demo manifest and commands
+
+```json
+{
+  "mode": "demo",
+  "vision_active": false,
+  "message": "Using simulated checkout events. Computer vision is not active.",
+  "products": [
+    {
+      "product_id": "bottle",
+      "product_name": "Water Bottle",
+      "unit_price": 40
+    }
+  ]
+}
+```
+
+Add/remove responses include the generated track ID, selected product, and a
+full cart snapshot. IDs are allocated by the demo runtime, not ByteTrack. A
+successful command records SQLite history, metrics, `cart.updated`, and
+`checkout.event` through the same services as a real cart mutation. Unknown
+products and attempts to remove an absent demo item return a safe `404`.
+
 ## Error model
 
 Expected and unexpected failures use a stable JSON shape:
@@ -199,6 +248,8 @@ Expected and unexpected failures use a stable JSON shape:
 | Status | Code | Meaning |
 |---:|---|---|
 | `404` | `session_not_found` | The requested persisted session does not exist |
+| `404` | `demo_product_not_found` | The requested demo catalog product does not exist |
+| `404` | `demo_item_not_found` | No active synthetic item exists to remove |
 | `405` | Framework response | The HTTP method is not allowed, such as `GET` reset |
 | `422` | `validation_error` | A query or path value violates its bounds or type |
 | `503` | `application_not_ready` | A reset arrived outside the running lifecycle |
@@ -223,15 +274,16 @@ Responses include `X-Content-Type-Options: nosniff` and
 `Cache-Control: no-store`. CORS is enabled only for the explicit origins in
 `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`; its defaults are
 `http://localhost:5173` and `http://127.0.0.1:5173`. It does not allow
-credentials. Its method allowlist supports the Frontend Phase 2 application's
-`GET` health/cart reads and `POST` cart reset. This is a response-sharing policy,
+credentials. Its method allowlist supports the dashboard's `GET` state reads
+and `POST` cart/demo commands. This is a response-sharing policy,
 not authentication or method authorization; non-browser clients do not enforce
 CORS. Browsers at unlisted origins normally cannot read CORS responses, but a
 simple bodyless `POST` can still reach and mutate the reset endpoint even when
 its response is unreadable. There are no request-body, filesystem, inference,
 command-execution, or video endpoints.
 
-The API has no authentication, authorization, TLS, or rate limiting. In
-particular, any client that can reach the service can invoke cart reset. Keep it
-on a trusted local interface; see [SECURITY.md](SECURITY.md) before considering
-non-local deployment.
+The API has no authentication, authorization, TLS, or rate limiting. Any client
+that can reach it can invoke cart reset; when demo mode is enabled, that client
+can also mutate synthetic cart state. Keep it on a trusted local interface and
+never enable demo mode on a public service. See [SECURITY.md](SECURITY.md)
+before considering non-local deployment.

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router'
 
 import { RealtimeStatus } from '../components/realtime/RealtimeStatus'
+import { DemoModeBadge } from '../components/demo/DemoModeBadge'
 
 const navigation = [
   { label: 'Dashboard', to: '/' },
@@ -19,6 +20,7 @@ export function AppLayout() {
           <div>
             <p className="brand-name">Smart Retail Checkout</p>
             <p className="brand-caption">Operations console</p>
+            <DemoModeBadge />
           </div>
         </header>
         <nav aria-label="Primary navigation" className="primary-nav">

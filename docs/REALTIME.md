@@ -24,8 +24,9 @@ Supported event types are:
 - `checkout.event`: the meaningful ADD, REMOVE, or RESET activity. Persisted
   IDs are nullable so a temporary SQLite failure does not hide a successful
   in-memory checkout mutation.
-- `metrics.updated`: a complete `MetricsResponse`, coalesced to at most once
-  per configured interval (one second by default).
+- `metrics.updated`: a complete `MetricsResponse`. Frame-driven updates are
+  coalesced to at most once per configured interval (one second by default);
+  infrequent demo commands publish their changed business counters on demand.
 
 Comment frames (`: heartbeat`) keep idle connections alive without pretending
 that application state changed.
@@ -43,6 +44,12 @@ reconciliation. While the stream is unavailable, cart, events, and metrics use
 non-overlapping five-second REST fallback reads. Normal high-frequency polling
 stops while the stream is live. Health and readiness intentionally remain
 five-second REST probes because they are low-frequency operational checks.
+
+Explicit demo add/remove commands use the same path after the headless runtime
+updates CartService and SQLite. Each command publishes a full cart snapshot,
+one checkout activity, and current metrics. The browser does not edit these
+states locally, and the visible **DEMO MODE** label prevents synthetic activity
+from being confused with camera output.
 
 ## Thread safety and backpressure
 
