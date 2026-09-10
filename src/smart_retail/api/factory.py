@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from smart_retail.api.dependencies import APIRuntime
 from smart_retail.api.errors import ResourceNotFoundError
 from smart_retail.api.models import ErrorResponse
-from smart_retail.api.routes import cart, events, health, metrics, sessions
+from smart_retail.api.routes import cart, events, health, metrics, realtime, sessions
 from smart_retail.application_state import ApplicationNotReadyError
 from smart_retail.infrastructure.logging_config import log_event
 from smart_retail.infrastructure.sqlite_repository import PersistenceError
@@ -67,6 +67,7 @@ def create_api_app(
     application.include_router(events.router, prefix="/api/v1")
     application.include_router(sessions.router, prefix="/api/v1")
     application.include_router(metrics.router, prefix="/api/v1")
+    application.include_router(realtime.router, prefix="/api/v1")
 
     @application.middleware("http")
     async def add_security_headers(request: Request, call_next):

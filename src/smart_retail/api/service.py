@@ -307,6 +307,12 @@ class HeadlessAPIRuntime:
     def subscribe_realtime(self) -> RealtimeSubscription:
         return self.realtime.subscribe()
 
+    def unsubscribe_realtime(self, subscription: RealtimeSubscription) -> None:
+        self.realtime.unsubscribe(subscription)
+
+    def get_realtime_heartbeat_seconds(self) -> float:
+        return self.config.realtime.heartbeat_seconds
+
     def get_recent_cart_events(self, limit: int) -> list[CartEvent]:
         return self._run_persistence_read(
             lambda repository: repository.get_recent_events(limit)

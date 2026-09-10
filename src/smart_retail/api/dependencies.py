@@ -38,6 +38,10 @@ class APIRuntime(Protocol):
 
     def subscribe_realtime(self) -> RealtimeSubscription: ...
 
+    def unsubscribe_realtime(self, subscription: RealtimeSubscription) -> None: ...
+
+    def get_realtime_heartbeat_seconds(self) -> float: ...
+
 
 def get_runtime(request: Request) -> APIRuntime:
     return cast(APIRuntime, request.app.state.runtime)

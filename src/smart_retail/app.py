@@ -623,6 +623,12 @@ class SmartRetailApplication:
     def subscribe_realtime(self) -> RealtimeSubscription:
         return self._realtime().subscribe()
 
+    def unsubscribe_realtime(self, subscription: RealtimeSubscription) -> None:
+        self._realtime().unsubscribe(subscription)
+
+    def get_realtime_heartbeat_seconds(self) -> float:
+        return self.config.realtime.heartbeat_seconds
+
     def get_recent_cart_events(self, limit: int) -> list[CartEvent]:
         repository = self._available_persistence()
         try:
