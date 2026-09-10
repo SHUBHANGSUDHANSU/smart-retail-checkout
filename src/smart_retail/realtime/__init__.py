@@ -10,6 +10,7 @@ from smart_retail.realtime.models import (
     RealtimeEventType,
     RealtimeMessage,
 )
+from smart_retail.realtime.publisher import RealtimePublisher
 
 __all__ = [
     "RealtimeBroadcaster",
@@ -17,5 +18,6 @@ __all__ = [
     "RealtimeClosedError",
     "RealtimeEventType",
     "RealtimeMessage",
+    "RealtimePublisher",
     "RealtimeSubscription",
 ]

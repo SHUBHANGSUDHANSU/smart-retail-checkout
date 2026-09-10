@@ -11,6 +11,7 @@ from smart_retail.domain.events import CartEvent
 from smart_retail.domain.models import CartSnapshot, CheckoutSession
 from smart_retail.health import LivenessSnapshot, ReadinessSnapshot
 from smart_retail.metrics import MetricsSnapshot
+from smart_retail.realtime.broadcaster import RealtimeSubscription
 
 
 @runtime_checkable
@@ -34,6 +35,8 @@ class APIRuntime(Protocol):
     def get_checkout_session_history(
         self, session_id: int
     ) -> SessionHistory | None: ...
+
+    def subscribe_realtime(self) -> RealtimeSubscription: ...
 
 
 def get_runtime(request: Request) -> APIRuntime:

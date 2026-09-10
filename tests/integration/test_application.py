@@ -20,6 +20,7 @@ from smart_retail.infrastructure.camera import CameraError, OpenCVCamera
 from smart_retail.infrastructure.logging_config import JsonEventFormatter
 from smart_retail.infrastructure.repository import load_product_catalog
 from smart_retail.metrics import MetricsService
+from smart_retail.realtime.models import RealtimeEventType
 from smart_retail.vision.pipeline import VisionResult
 
 
@@ -213,6 +214,7 @@ class ApplicationObservabilityTests(unittest.TestCase):
             health=initialized_health(config.database.enabled),
             metrics=metrics,
         )
+        realtime = application.subscribe_realtime()
 
         self.assertEqual(application.run(), 0)
 
@@ -223,6 +225,9 @@ class ApplicationObservabilityTests(unittest.TestCase):
         self.assertEqual(snapshot.inference_latency_ms, 8.0)
         self.assertGreaterEqual(snapshot.frame_processing_latency_ms, 0.0)
         self.assertGreaterEqual(snapshot.current_fps, 0.0)
+        message = realtime.get_nowait()
+        self.assertEqual(message.event_type, RealtimeEventType.METRICS_UPDATED)
+        self.assertEqual(message.payload.frames_processed_total, 1)
 
     def test_checkout_metrics_distinguish_events_from_cart_mutations(self) -> None:
         config = load_config({})
