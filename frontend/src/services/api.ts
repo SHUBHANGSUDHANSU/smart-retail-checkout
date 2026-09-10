@@ -128,7 +128,7 @@ const numericMetricNames = [
   'uptime_seconds',
 ] as const satisfies readonly (keyof MetricsResponse)[]
 
-function isMetricsResponse(value: unknown): value is MetricsResponse {
+export function isMetricsResponse(value: unknown): value is MetricsResponse {
   if (!isRecord(value)) {
     return false
   }
@@ -155,7 +155,7 @@ function isCartItem(value: unknown): value is CartItem {
   )
 }
 
-function isCartResponse(value: unknown): value is CartResponse {
+export function isCartResponse(value: unknown): value is CartResponse {
   if (!isRecord(value)) {
     return false
   }
@@ -180,7 +180,7 @@ function isCartResetResponse(value: unknown): value is CartResetResponse {
   )
 }
 
-function isCheckoutEvent(value: unknown): value is CheckoutEvent {
+export function isCheckoutEvent(value: unknown): value is CheckoutEvent {
   if (
     !isRecord(value) ||
     !isPositiveInteger(value.id) ||

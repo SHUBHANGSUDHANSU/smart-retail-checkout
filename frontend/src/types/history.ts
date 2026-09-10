@@ -10,6 +10,12 @@ export interface CheckoutEvent {
   unit_price: number | null
 }
 
+export interface CheckoutActivity extends Omit<CheckoutEvent, 'id' | 'session_id'> {
+  id: number | null
+  session_id: number | null
+  realtime_sequence?: number
+}
+
 export interface RecentEventsResponse {
   events: CheckoutEvent[]
   limit: number

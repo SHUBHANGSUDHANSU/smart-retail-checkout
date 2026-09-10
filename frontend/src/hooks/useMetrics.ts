@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getMetrics } from '../services/api'
 import type { MetricsResponse } from '../types/api'
+import { useRealtime } from '../realtime/RealtimeContext'
 
-export const METRICS_POLL_INTERVAL_MS = 2_000
+export const METRICS_FALLBACK_INTERVAL_MS = 5_000
+export const METRICS_POLL_INTERVAL_MS = METRICS_FALLBACK_INTERVAL_MS
 
 interface MetricsState {
   metrics: MetricsResponse | null
@@ -17,12 +19,14 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useMetrics(): MetricsState {
+  const realtime = useRealtime()
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(false)
   const controllerRef = useRef<AbortController | null>(null)
   const requestRef = useRef<Promise<void> | null>(null)
+  const realtimeRevisionRef = useRef(0)
 
   const refresh = useCallback((): Promise<void> => {
     const existingRequest = requestRef.current
@@ -31,10 +35,15 @@ export function useMetrics(): MetricsState {
     }
 
     const controller = new AbortController()
+    const startingRealtimeRevision = realtimeRevisionRef.current
     controllerRef.current = controller
     const request = getMetrics(controller.signal)
       .then((snapshot) => {
-        if (!controller.signal.aborted && mountedRef.current) {
+        if (
+          !controller.signal.aborted &&
+          mountedRef.current &&
+          startingRealtimeRevision === realtimeRevisionRef.current
+        ) {
           setMetrics(snapshot)
           setError(null)
         }
@@ -67,26 +76,44 @@ export function useMetrics(): MetricsState {
 
   useEffect(() => {
     mountedRef.current = true
-    let pollTimer: ReturnType<typeof setTimeout> | undefined
-
-    const poll = () => {
-      void refresh().finally(() => {
-        if (mountedRef.current) {
-          pollTimer = setTimeout(poll, METRICS_POLL_INTERVAL_MS)
-        }
-      })
-    }
-
-    poll()
+    void refresh()
 
     return () => {
       mountedRef.current = false
-      if (pollTimer !== undefined) {
-        clearTimeout(pollTimer)
-      }
       controllerRef.current?.abort()
     }
   }, [refresh])
+
+  useEffect(
+    () =>
+      realtime.subscribe((event) => {
+        if (event.type === 'metrics.updated' && mountedRef.current) {
+          realtimeRevisionRef.current += 1
+          setMetrics(event.payload)
+          setError(null)
+          setIsInitialLoading(false)
+        }
+      }),
+    [realtime],
+  )
+
+  useEffect(() => {
+    if (realtime.status === 'live') return
+    let timer: ReturnType<typeof setTimeout>
+    const poll = () => {
+      void refresh().finally(() => {
+        if (mountedRef.current && realtime.status !== 'live') {
+          timer = setTimeout(poll, METRICS_FALLBACK_INTERVAL_MS)
+        }
+      })
+    }
+    timer = setTimeout(poll, METRICS_FALLBACK_INTERVAL_MS)
+    return () => clearTimeout(timer)
+  }, [realtime.status, refresh])
+
+  useEffect(() => {
+    if (realtime.connectionRevision > 0) void refresh()
+  }, [realtime.connectionRevision, refresh])
 
   return { metrics, isInitialLoading, error, refresh }
 }

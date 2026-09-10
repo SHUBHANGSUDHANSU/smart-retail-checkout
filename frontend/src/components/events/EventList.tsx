@@ -1,10 +1,10 @@
-import type { CartEventType, CheckoutEvent } from '../../types/history'
+import type { CartEventType, CheckoutActivity } from '../../types/history'
 import { formatInr } from '../../utils/currency'
 import { formatCompactTime, formatDateTime } from '../../utils/dateTime'
 import { formatProductId } from '../../utils/productName'
 
 interface EventListProps {
-  events: CheckoutEvent[]
+  events: CheckoutActivity[]
   timestampStyle?: 'compact' | 'full'
   timeZone?: string
 }
@@ -39,7 +39,7 @@ export function EventList({
         return (
           <li
             className={`event-row event-row--${presentation.tone}`}
-            key={event.id}
+            key={event.id ?? `realtime-${event.realtime_sequence}`}
           >
             <span className="event-row__badge">{presentation.badge}</span>
             <div className="event-row__content">
