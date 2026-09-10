@@ -186,6 +186,20 @@ h3 {
   font-size: 0.78rem;
 }
 
+.demo-mode-badge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: var(--space-2);
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
 .primary-nav {
   display: grid;
   gap: var(--space-2);
@@ -481,6 +495,87 @@ h3 {
 
 .button--secondary {
   border-color: var(--border);
+}
+
+.button--primary {
+  border-color: var(--brand-border);
+  color: var(--background);
+  background: var(--success);
+}
+
+.button--primary:hover:not(:disabled) {
+  border-color: var(--success-hover);
+  background: var(--success-hover);
+}
+
+.demo-controls {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.demo-mode-copy {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid rgb(224 182 97 / 0.45);
+  border-radius: var(--radius-md);
+  background: var(--warning-soft);
+}
+
+.demo-mode-copy p,
+.demo-controls > p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.demo-controls > [role="status"] {
+  color: var(--success);
+}
+
+.demo-controls > [role="alert"] {
+  color: var(--error-text);
+}
+
+.demo-product-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.demo-product-row {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+}
+
+.demo-product-row > span:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.demo-product-row small {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-product-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.demo-product-actions .button {
+  min-width: 0;
+  font-size: 0.8rem;
 }
 
 .button--danger,
@@ -1187,7 +1282,7 @@ h3 {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   .sidebar {
     position: static;
     align-items: stretch;
@@ -1238,7 +1333,8 @@ h3 {
   .status-list,
   .system-overview-grid,
   .component-status-grid,
-  .metric-groups {
+  .metric-groups,
+  .demo-product-list {
     grid-template-columns: 1fr;
   }
 
@@ -1404,6 +1500,10 @@ h3 {
 
   .session-table tbody td:last-child .session-status {
     justify-self: start;
+  }
+
+  .demo-product-actions {
+    grid-template-columns: 1fr;
   }
 }
 

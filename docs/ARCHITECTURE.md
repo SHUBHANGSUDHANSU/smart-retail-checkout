@@ -2,8 +2,9 @@
 
 Smart Retail Checkout is a modular monolith: one local Python process owns the
 realtime webcam loop and can run a background FastAPI server over the same
-business state. The container entry point reuses the API, cart, health, metrics,
-and persistence components without loading computer-vision dependencies.
+business state. API-only and explicitly enabled demo entry points reuse cart,
+health, metrics, persistence, REST, and SSE without loading computer-vision
+dependencies.
 
 ## System data flow
 
@@ -19,6 +20,7 @@ flowchart LR
     Cart -->|"immutable updates"| Broadcaster["Realtime broadcaster"]
     Broadcaster --> SSE["FastAPI SSE"]
     SSE --> React["React dashboard"]
+    React -->|"REST commands"| API
     Cart -->|"immutable snapshots"| UI["OpenCV UI"]
     ByteTrack --> UI
     EventEngine --> UI
@@ -44,6 +46,8 @@ flowchart LR
     Metrics -.-> Cart
     Metrics -.-> API
     Metrics -.-> Broadcaster
+    Lifecycle["Health / lifecycle"] -.-> API
+    Tests["Tests / CI"] -.-> Cart
 ```
 
 Solid arrows show runtime data flow. Dotted arrows show cross-cutting
@@ -69,6 +73,7 @@ small, framework-independent in-memory service.
 | `infrastructure/logging_config.py` | Configure readable or JSON event logs and optional rotating files | Standard logging, logging config | Yes |
 | `presentation/opencv_ui.py` | Render frames, zones, tracks, cart snapshots, notifications, and keyboard-visible help | OpenCV, immutable snapshots | With OpenCV drawing boundary replaced |
 | `api/` | Validate HTTP input and serialize shared business snapshots and persisted history | FastAPI, Pydantic, `APIRuntime` protocol | Yes, through `TestClient` |
+| `api/routes/demo.py` | Expose catalog-derived synthetic commands only when demo mode is explicitly enabled | Demo runtime protocol, Pydantic | Yes, without hardware |
 | `realtime/` | Publish typed updates through bounded per-client queues without blocking producers | Immutable snapshots, standard-library synchronization | Yes |
 | `health.py` | Store thread-safe lifecycle and component readiness transitions | Application-state enum | Yes |
 | `metrics.py` | Store thread-safe counters, gauges, and bounded rolling latency averages | Domain snapshots, clock | Yes |
@@ -121,6 +126,12 @@ drawing algorithms.
 9. FastAPI workers may concurrently read snapshots or SQLite history, and SSE
    workers drain private client queues; neither path runs inference.
 
+In demo mode, a narrowly scoped API command replaces steps 1–5. The headless
+runtime allocates a synthetic track ID and then enters the same cart,
+persistence, metrics, and realtime sequence used after a real confirmed zone
+event. The UI identifies the entire runtime as demo mode; no synthetic event is
+represented as a detector or tracker result.
+
 ## State and consistency
 
 The realtime cart is keyed by track ID and optimized in memory. SQLite is an
@@ -148,7 +159,7 @@ Camera exhaustion or an unexpected vision failure changes health state and
 drives ordered shutdown. API exception handlers return stable safe messages;
 tracebacks remain server-side.
 
-## Native and container execution modes
+## Execution modes
 
 ```mermaid
 flowchart TB
@@ -164,12 +175,24 @@ flowchart TB
         A2["FastAPI"] --> S["Cart / Health / Metrics"]
         S --> D2["SQLite volume"]
     end
+
+    subgraph Demo["Explicit local demo mode"]
+        Controls["React demo controls"] -->|"REST command"| A3["Conditional demo router"]
+        A3 --> S3["Cart / Persistence / Metrics"]
+        S3 --> R3["SSE publisher"]
+        R3 --> Controls
+    end
 ```
 
 The modes reuse domain services, Pydantic schemas, route modules, and the SQLite
 repository, but they are independent processes with independent in-memory
 carts. Docker Desktop on macOS is not the supported webcam path; native Python
 remains the primary vision demonstration.
+
+Demo mode is disabled by default, uses the API-only runtime, and never loads
+the camera, YOLO, ByteTrack, or OpenCV. Its router is absent from normal routing
+and OpenAPI. `scripts/run-demo.sh` selects a separate ignored SQLite file so a
+portfolio walkthrough does not mix with ordinary local history.
 
 ## Deliberate tradeoffs
 
@@ -184,6 +207,8 @@ remains the primary vision demonstration.
   are not a multi-instance consistency design.
 - ByteTrack identity is accepted only when provided by the tracker. The event
   engine never invents IDs or appearance matches.
+- The demo runtime generates IDs only for clearly labeled synthetic commands;
+  those IDs are not claimed to be ByteTrack identities.
 
 More detail is available in [API.md](API.md), [DATABASE.md](DATABASE.md),
 [CONCURRENCY.md](CONCURRENCY.md), [HEALTH_CHECKS.md](HEALTH_CHECKS.md),

@@ -15,6 +15,11 @@ import type {
   RecentEventsResponse,
   RecentSessionsResponse,
 } from '../types/history'
+import type {
+  DemoManifest,
+  DemoMutationResponse,
+  DemoProduct,
+} from '../types/demo'
 
 export class ApiError extends Error {
   readonly statusCode: number | undefined
@@ -176,6 +181,39 @@ function isCartResetResponse(value: unknown): value is CartResetResponse {
   return (
     typeof value.status === 'string' &&
     isNonNegativeInteger(value.removed_track_count) &&
+    isCartResponse(value.cart)
+  )
+}
+
+function isDemoProduct(value: unknown): value is DemoProduct {
+  return (
+    isRecord(value) &&
+    typeof value.product_id === 'string' &&
+    value.product_id.length > 0 &&
+    typeof value.product_name === 'string' &&
+    value.product_name.length > 0 &&
+    isNonNegativeInteger(value.unit_price)
+  )
+}
+
+function isDemoManifest(value: unknown): value is DemoManifest {
+  return (
+    isRecord(value) &&
+    value.mode === 'demo' &&
+    value.vision_active === false &&
+    typeof value.message === 'string' &&
+    value.message.length > 0 &&
+    Array.isArray(value.products) &&
+    value.products.every(isDemoProduct)
+  )
+}
+
+function isDemoMutationResponse(value: unknown): value is DemoMutationResponse {
+  return (
+    isRecord(value) &&
+    (value.status === 'added' || value.status === 'removed') &&
+    isPositiveInteger(value.track_id) &&
+    isDemoProduct(value.product) &&
     isCartResponse(value.cart)
   )
 }
@@ -354,6 +392,39 @@ export function resetCart(signal?: AbortSignal): Promise<CartResetResponse> {
     { method: 'POST', signal },
     isCartResetResponse,
     'Backend returned invalid cart reset data.',
+  )
+}
+
+export function getDemoManifest(signal?: AbortSignal): Promise<DemoManifest> {
+  return requestJson(
+    '/api/v1/demo',
+    { method: 'GET', signal },
+    isDemoManifest,
+    'Backend returned invalid demo mode data.',
+  )
+}
+
+export function addDemoItem(
+  productId: string,
+  signal?: AbortSignal,
+): Promise<DemoMutationResponse> {
+  return requestJson(
+    `/api/v1/demo/items/${encodeURIComponent(productId)}`,
+    { method: 'POST', signal },
+    isDemoMutationResponse,
+    'Backend returned invalid demo mutation data.',
+  )
+}
+
+export function removeDemoItem(
+  productId: string,
+  signal?: AbortSignal,
+): Promise<DemoMutationResponse> {
+  return requestJson(
+    `/api/v1/demo/items/${encodeURIComponent(productId)}/remove`,
+    { method: 'POST', signal },
+    isDemoMutationResponse,
+    'Backend returned invalid demo mutation data.',
   )
 }
 

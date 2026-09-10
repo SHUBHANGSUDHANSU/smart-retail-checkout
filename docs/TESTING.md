@@ -19,6 +19,14 @@ closure without opening a network socket. Frontend Vitest coverage replaces
 `EventSource` at the transport boundary and verifies parsing, connection state,
 provider cleanup, REST bootstrap, live updates, and event deduplication.
 
+Demo-mode integration tests use a temporary SQLite database and the real
+headless runtime. They verify that demo routes are absent normally, catalog
+commands allocate distinct physical track IDs, repeated products aggregate,
+remove/reset remain exact, persistence and metrics change, and subscribers
+receive full cart, checkout-event, and metrics messages. Frontend tests mock
+only HTTP/EventSource boundaries and verify mode discovery, explicit labeling,
+command busy/error states, and normal-mode absence.
+
 Run an individual category when working on that area:
 
 ```bash
@@ -125,6 +133,16 @@ Test the native demo manually on macOS when changing those paths:
 3. Confirm the webcam and OpenCV window remain responsive.
 4. Verify detections, stable tracking IDs, checkout ENTER/EXIT behavior, cart
    updates, reset with `R`, debug toggle with `D`, and clean exit with `Q`.
+
+For a hardware-free end-to-end smoke test, run `./scripts/run-demo.sh`, execute
+the scenario in [DEMO.md](DEMO.md), and confirm REST bootstrap followed by live
+SSE cart/event/metric updates. This verifies the application stack but must not
+be reported as a webcam, detector, or tracker test.
+
+Browser sanity checks cover 1440, 1024, 768, and 390 pixel viewports for the
+Dashboard, Sessions, Session Detail, and System routes. They check meaningful
+content, visible labels, no framework error overlay, no console errors, and no
+horizontal overflow; tests avoid brittle CSS pixel assertions.
 
 ## Weak deterministic coverage areas
 

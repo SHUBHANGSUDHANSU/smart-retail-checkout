@@ -49,12 +49,14 @@ an ignored local file or deployment secret store and must never be added to
 - Responses include `X-Content-Type-Options: nosniff` and
   `Cache-Control: no-store`.
 - State-changing reset uses `POST`; `GET /api/v1/cart/reset` is rejected.
+- Synthetic add/remove routes are registered only while
+  `SMART_RETAIL_DEMO_MODE=true`; normal routing and OpenAPI do not expose them.
 - CORS permits only the configured origins in
   `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS`. The local defaults are
   `http://localhost:5173` and `http://127.0.0.1:5173`; wildcard origins are
   rejected during configuration validation. CORS credentials are disabled and
-  the method allowlist contains `GET` for health/cart reads and `POST` for the
-  Phase 2 reset action. CORS governs whether browser JavaScript may read a
+  the method allowlist contains `GET` for state reads and `POST` for reset and
+  enabled demo commands. CORS governs whether browser JavaScript may read a
   response; it is not authentication, authorization, or a server-side method
   firewall. Command-line and other non-browser clients do not enforce CORS. An
   unlisted browser origin normally cannot read the response, but it can still
@@ -71,8 +73,22 @@ application boundary.
 demo. It calls the same synchronized application service used by the keyboard
 reset; it does not duplicate or bypass cart rules. Any client that can reach
 the API can reset the active cart. Browser access from configured origins is
-deliberately supported by Frontend Phase 2. That exposure is acceptable only
+deliberately supported by the React dashboard. That exposure is acceptable only
 under the local, trusted-client threat model.
+
+### Demo endpoints
+
+Demo controls are intentionally unauthenticated because they exist only for a
+local portfolio walkthrough. They allocate synthetic track IDs server-side and
+accept only product IDs already present in the configured catalog; clients
+cannot submit SQL, prices, filenames, detector results, or arbitrary events.
+The supplied startup helper binds to loopback and selects a separate ignored
+SQLite database.
+
+This is an exposure guard, not authorization. Enabling demo mode on a reachable
+interface allows every reachable client to mutate synthetic cart state. Public
+or shared deployments must keep demo mode off or protect the commands with
+authentication and authorization.
 
 Binding the API to `0.0.0.0`, a LAN address, or another externally reachable
 interface expands the threat boundary. The startup warning makes that change
@@ -130,7 +146,7 @@ automated advisory scanner and a regular patching policy.
 ## Known limitations
 
 - There is no authentication, authorization, user identity, rate limiting, or
-  audit identity for reset calls.
+  audit identity for reset or enabled demo calls.
 - Swagger UI, ReDoc, OpenAPI, cart state, metrics, and checkout history are
   visible to every client that can reach the API.
 - HTTP is unencrypted. Loopback traffic is assumed; TLS termination is absent.

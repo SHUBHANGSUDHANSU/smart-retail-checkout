@@ -48,6 +48,18 @@ For hardware-free API development, use the separate headless service instead:
 smart-retail-api
 ```
 
+For an interactive hardware-free portfolio walkthrough, run this from the
+repository root instead:
+
+```bash
+./scripts/run-demo.sh
+```
+
+Demo mode is disabled by default. The helper selects a separate local database,
+starts backend and frontend, and waits for liveness. The application shell
+shows **DEMO MODE** plus an explicit explanation that synthetic checkout events
+are in use and computer vision is inactive.
+
 The headless service owns its own in-memory cart and session, so it does not
 share live state with a separately running webcam process.
 
@@ -115,6 +127,20 @@ The event API exposes persisted `product_id` values rather than catalog display
 names. The frontend converts separators and capitalization for readability but
 does not invent product metadata.
 
+## Demo controls
+
+At startup, one request to `GET /api/v1/demo` discovers whether the backend
+registered its optional demo router. A normal `404` means vision/API-only mode
+and leaves all demo presentation absent. When enabled, the response supplies
+the real configured product catalog; no product or price is hardcoded in React.
+
+Add and Remove controls use `POST /api/v1/demo/items/{product_id}` and
+`POST /api/v1/demo/items/{product_id}/remove`. Buttons prevent overlapping
+commands and show safe local status/error messages. The controls do not edit
+cart state in React: the backend mutates CartService, records history and
+metrics, and publishes the same full SSE snapshots used by vision mode. Reset
+continues through the existing confirmation and cart reset endpoint.
+
 ## Health, readiness, and metrics
 
 The Dashboard and System page read the backend's real observability endpoints:
@@ -175,3 +201,8 @@ Routes are available at:
 Backend health/readiness, Current Cart, Recent Events, Sessions, and metrics all
 use real API data. Historical charts, camera streaming, WebSockets,
 authentication, and global client-state management remain deferred.
+
+Responsive checks target 1440, 1024, 768, and 390 pixel viewport widths. The
+demo control grid becomes one column on tablets and its actions stack on narrow
+phones. Status is always conveyed with text, all controls are semantic buttons,
+focus remains visible, and reduced-motion preferences are respected.

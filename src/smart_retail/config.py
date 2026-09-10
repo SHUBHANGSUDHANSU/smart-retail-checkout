@@ -276,6 +276,13 @@ class RealtimeConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class DemoConfig:
+    """Explicitly opt in to hardware-free, synthetic checkout commands."""
+
+    enabled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
@@ -287,6 +294,7 @@ class AppConfig:
     api: APIConfig = field(default_factory=APIConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     realtime: RealtimeConfig = field(default_factory=RealtimeConfig)
+    demo: DemoConfig = field(default_factory=DemoConfig)
     products_config_path: Path = DEFAULT_CONFIG_DIR / "products.json"
 
     def __post_init__(self) -> None:
@@ -315,6 +323,7 @@ class AppConfig:
             else "disabled"
         )
         return (
+            f"mode={'demo' if self.demo.enabled else 'vision'} | "
             f"camera={self.camera.camera_index} "
             f"{self.camera.width}x{self.camera.height} | "
             f"model={Path(self.model.model_path).name} "
@@ -488,6 +497,9 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
             1.0,
         ),
     )
+    demo = DemoConfig(
+        enabled=_env_bool(environment, "DEMO_MODE", False),
+    )
     return AppConfig(
         camera=camera,
         model=model,
@@ -499,6 +511,7 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         api=api,
         metrics=metrics,
         realtime=realtime,
+        demo=demo,
         products_config_path=_env_path(
             environment,
             "PRODUCTS_CONFIG_PATH",

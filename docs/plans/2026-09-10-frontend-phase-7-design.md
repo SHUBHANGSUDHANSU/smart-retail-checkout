@@ -8,7 +8,7 @@ Make the completed Smart Retail Checkout project straightforward to demonstrate 
 
 `SMART_RETAIL_DEMO_MODE` is a validated, disabled-by-default application setting. When enabled with the API-only entrypoint, the runtime does not initialize the camera, YOLO, ByteTrack, or the OpenCV window. A demo-only API router is registered conditionally, so mutation endpoints do not exist in normal mode or normal OpenAPI output.
 
-The demo runtime generates unique negative track IDs server-side. Add and remove commands use the same thread-safe cart service, persistence repository, metrics service, structured logging, and realtime publisher used by the real application. Full cart snapshots and persisted checkout events continue to reach React through the existing SSE connection. Synthetic events are identified by the global demo-mode presentation and an isolated demo database selected by the startup helper; the domain event schema is not changed.
+The demo runtime generates unique IDs from a reserved positive range server-side. Add and remove commands use the same thread-safe cart service, persistence repository, metrics service, structured logging, and realtime publisher used by the real application. Full cart snapshots and persisted checkout events continue to reach React through the existing SSE connection. Synthetic events are identified by the global demo-mode presentation and an isolated demo database selected by the startup helper; the domain event schema is not changed.
 
 The supported controls are:
 

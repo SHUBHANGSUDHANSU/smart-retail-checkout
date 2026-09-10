@@ -1039,6 +1039,14 @@ def main() -> int:
         console=True,
         rotating_file=config.logging.file_path is not None,
     )
+    if config.demo.enabled:
+        log_event(
+            logger,
+            logging.ERROR,
+            "demo_mode_wrong_entrypoint",
+            "Demo mode does not initialize computer vision; run smart-retail-api or scripts/run-demo.sh",
+        )
+        return 2
     try:
         application = build_application(config, logger)
     except KeyboardInterrupt:

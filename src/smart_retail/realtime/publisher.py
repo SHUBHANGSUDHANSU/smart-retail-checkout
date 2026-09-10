@@ -63,5 +63,9 @@ class RealtimePublisher:
         self._broadcaster.publish(RealtimeEventType.METRICS_UPDATED, snapshot)
         return True
 
+    def publish_metrics(self, snapshot: MetricsSnapshot) -> RealtimeMessage:
+        """Publish an on-demand metrics snapshot for an infrequent command."""
+        return self._broadcaster.publish(RealtimeEventType.METRICS_UPDATED, snapshot)
+
     def close(self) -> None:
         self._broadcaster.close()
