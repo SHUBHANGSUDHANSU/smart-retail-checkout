@@ -192,6 +192,47 @@ h3 {
   margin-top: var(--space-10);
 }
 
+.realtime-status {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-6);
+  left: var(--space-4);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  background: var(--surface-inset);
+  font-size: 0.75rem;
+}
+
+.realtime-status strong {
+  color: var(--text-secondary);
+}
+
+.realtime-status__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.realtime-status--live .realtime-status__dot {
+  background: var(--success);
+}
+
+.realtime-status--reconnecting .realtime-status__dot,
+.realtime-status--connecting .realtime-status__dot {
+  background: var(--warning);
+}
+
+.realtime-status--offline .realtime-status__dot {
+  background: var(--error);
+}
+
 .nav-link {
   position: relative;
   padding: 0.8rem 0.9rem 0.8rem 1rem;
@@ -1098,6 +1139,12 @@ h3 {
     border-bottom: 1px solid var(--border);
   }
 
+  .realtime-status {
+    position: static;
+    flex: 0 0 auto;
+    min-width: 9.5rem;
+  }
+
   .primary-nav {
     display: flex;
     flex-wrap: wrap;
@@ -1145,6 +1192,11 @@ h3 {
     position: static;
     align-items: stretch;
     flex-direction: column;
+  }
+
+
+  .realtime-status {
+    width: 100%;
   }
 
   .brand-block {

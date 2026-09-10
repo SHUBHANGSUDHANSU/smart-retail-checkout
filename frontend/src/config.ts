@@ -24,4 +24,5 @@ export function resolveApiBaseUrl(value: string | undefined): string {
 
 export const appConfig = Object.freeze({
   apiBaseUrl: resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
+  realtimeStreamUrl: `${resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL)}/api/v1/stream`,
 })

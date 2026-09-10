@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getCart, resetCart } from '../../services/api'
+import { CART_FALLBACK_INTERVAL_MS } from '../../hooks/useCart'
 import type { CartResetResponse, CartResponse } from '../../types/cart'
 import { CurrentCart } from './CurrentCart'
 
@@ -174,7 +175,7 @@ describe('CurrentCart', () => {
     expect(screen.getByRole('alertdialog')).toBeVisible()
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_500)
+      await vi.advanceTimersByTimeAsync(CART_FALLBACK_INTERVAL_MS)
     })
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()

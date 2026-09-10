@@ -6,6 +6,8 @@ import ipaddress
 import logging
 import threading
 import time
+from collections.abc import Callable
+from types import FrameType
 
 import uvicorn
 from fastapi import FastAPI
@@ -17,6 +19,22 @@ LOGGER = logging.getLogger(__name__)
 
 class APIServerError(RuntimeError):
     """Raised when the local HTTP server cannot start."""
+
+
+class ShutdownAwareServer(uvicorn.Server):
+    """Close long-lived application streams before Uvicorn drains requests."""
+
+    def __init__(
+        self,
+        config: uvicorn.Config,
+        before_shutdown: Callable[[], None],
+    ) -> None:
+        super().__init__(config)
+        self._before_shutdown = before_shutdown
+
+    def handle_exit(self, sig: int, frame: FrameType | None) -> None:
+        self._before_shutdown()
+        super().handle_exit(sig, frame)
 
 
 class BackgroundAPIServer:

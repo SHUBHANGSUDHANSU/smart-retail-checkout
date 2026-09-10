@@ -13,6 +13,12 @@ here.
 | `tests/integration` | SQLite, FastAPI, orchestration, lifecycle, and concurrency scenarios. |
 | `tests/contracts` | Packaging, CI, and container policy artifacts, plus wheel-resource and security checks. |
 
+Realtime unit tests exercise SSE encoding, heartbeat/disconnect cleanup,
+multiple bounded subscribers, queue overflow, metrics throttling, and lifecycle
+closure without opening a network socket. Frontend Vitest coverage replaces
+`EventSource` at the transport boundary and verifies parsing, connection state,
+provider cleanup, REST bootstrap, live updates, and event deduplication.
+
 Run an individual category when working on that area:
 
 ```bash

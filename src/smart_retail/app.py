@@ -52,6 +52,9 @@ from smart_retail.infrastructure.sqlite_repository import (
 )
 from smart_retail.metrics import MetricsService, MetricsSnapshot
 from smart_retail.presentation.opencv_ui import OpenCVUI
+from smart_retail.realtime.broadcaster import RealtimeBroadcaster, RealtimeSubscription
+from smart_retail.realtime.models import RealtimeCheckoutActivity
+from smart_retail.realtime.publisher import RealtimePublisher
 from smart_retail.vision.detector import YOLODetector
 from smart_retail.vision.pipeline import VisionPipeline
 from smart_retail.vision.tracker import ByteTracker
@@ -72,6 +75,7 @@ class SmartRetailApplication:
     ui: OpenCVUI
     health: HealthService
     metrics: MetricsService = field(default_factory=MetricsService)
+    realtime: RealtimePublisher | None = None
     persistence: SQLiteCheckoutRepository | None = None
     persistence_session_id: int | None = None
     api_server: BackgroundAPIServer | None = None
@@ -110,6 +114,21 @@ class SmartRetailApplication:
         repr=False,
     )
     _run_thread_id: int | None = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.realtime is None:
+            self.realtime = RealtimePublisher(
+                RealtimeBroadcaster(self.config.realtime.queue_capacity),
+                metrics_interval_seconds=(
+                    self.config.realtime.metrics_interval_seconds
+                ),
+            )
+
+    def _realtime(self) -> RealtimePublisher:
+        publisher = self.realtime
+        if publisher is None:
+            raise RuntimeError("Realtime publisher was not initialized.")
+        return publisher
 
     def run(self) -> int:
         """Own one realtime loop and make external shutdown wait for it."""
@@ -203,6 +222,7 @@ class SmartRetailApplication:
                     * 1000.0,
                     current_fps=fps,
                 )
+                self._realtime().publish_metrics_if_due(self.metrics.get_snapshot())
 
                 self.ui.render(
                     frame,
@@ -466,11 +486,22 @@ class SmartRetailApplication:
                 if event.event_type is CheckoutEventType.ENTER
                 else CartEventType.REMOVE
             )
-            self._record_cart_event(
+            persisted_event = self._record_cart_event(
                 event_type=persisted_event_type,
                 timestamp=event.timestamp,
                 track_id=event.track_id,
                 product=product,
+            )
+            self._realtime().publish_cart(cart_snapshot)
+            self._realtime().publish_checkout_event(
+                RealtimeCheckoutActivity.from_mutation(
+                    event_type=persisted_event_type,
+                    timestamp=event.timestamp,
+                    track_id=event.track_id,
+                    product_id=product.product_id,
+                    unit_price=product.unit_price,
+                    persisted_event=persisted_event,
+                )
             )
             self.ui.show_notification(
                 f"- {product.name} {action}",
@@ -510,12 +541,25 @@ class SmartRetailApplication:
             cart_total=self.cart.get_total(),
             reason="tracking_expired",
         )
-        self.metrics.record_cart_removal(self.cart.get_snapshot())
-        self._record_cart_event(
+        cart_snapshot = self.cart.get_snapshot()
+        self.metrics.record_cart_removal(cart_snapshot)
+        event_timestamp = time.time()
+        persisted_event = self._record_cart_event(
             event_type=CartEventType.REMOVE,
-            timestamp=time.time(),
+            timestamp=event_timestamp,
             track_id=track_id,
             product=product,
+        )
+        self._realtime().publish_cart(cart_snapshot)
+        self._realtime().publish_checkout_event(
+            RealtimeCheckoutActivity.from_mutation(
+                event_type=CartEventType.REMOVE,
+                timestamp=event_timestamp,
+                track_id=track_id,
+                product_id=product.product_id,
+                unit_price=product.unit_price,
+                persisted_event=persisted_event,
+            )
         )
         self.ui.show_notification(
             f"- {product.name} removed (tracking lost)",
@@ -524,6 +568,7 @@ class SmartRetailApplication:
 
     def reset_checkout(self, source: str) -> CartResetResult:
         """Reset the one shared cart/event engine from OpenCV or the API."""
+        event_timestamp = time.time()
         with self._checkout_command_lock:
             application_state = self.health.get_readiness().application_state
             if source == "api" and application_state is not ApplicationState.RUNNING:
@@ -543,12 +588,21 @@ class SmartRetailApplication:
                 removed_track_count=removed_count,
                 cart_total=snapshot.total,
             )
-            self._record_cart_event(
+            persisted_event = self._record_cart_event(
                 event_type=CartEventType.RESET,
-                timestamp=time.time(),
+                timestamp=event_timestamp,
             )
             self.ui.show_notification("- Cart reset", "info")
-            return CartResetResult(removed_count, snapshot)
+            result = CartResetResult(removed_count, snapshot)
+        self._realtime().publish_cart(snapshot)
+        self._realtime().publish_checkout_event(
+            RealtimeCheckoutActivity.from_mutation(
+                event_type=CartEventType.RESET,
+                timestamp=event_timestamp,
+                persisted_event=persisted_event,
+            )
+        )
+        return result
 
     def _reset_checkout(self) -> None:
         """Preserve the existing internal reset entry point for tests/callers."""
@@ -565,6 +619,15 @@ class SmartRetailApplication:
 
     def get_metrics_snapshot(self) -> MetricsSnapshot:
         return self.metrics.get_snapshot()
+
+    def subscribe_realtime(self) -> RealtimeSubscription:
+        return self._realtime().subscribe()
+
+    def unsubscribe_realtime(self, subscription: RealtimeSubscription) -> None:
+        self._realtime().unsubscribe(subscription)
+
+    def get_realtime_heartbeat_seconds(self) -> float:
+        return self.config.realtime.heartbeat_seconds
 
     def get_recent_cart_events(self, limit: int) -> list[CartEvent]:
         repository = self._available_persistence()
@@ -652,6 +715,7 @@ class SmartRetailApplication:
             )
 
     def _stop_api_server(self) -> None:
+        self._realtime().close()
         if self.api_server is not None:
             self.api_server.stop()
 
@@ -729,12 +793,12 @@ class SmartRetailApplication:
         timestamp: float,
         track_id: int | None = None,
         product: Product | None = None,
-    ) -> None:
+    ) -> CartEvent | None:
         with self._state_lock:
             repository = self.persistence
             session_id = self.persistence_session_id
         if repository is None or session_id is None:
-            return
+            return None
         try:
             persisted_event = repository.record_cart_event(
                 session_id=session_id,
@@ -746,7 +810,7 @@ class SmartRetailApplication:
             )
         except PersistenceError as error:
             self._disable_persistence("record_cart_event", error)
-            return
+            return None
         log_event(
             self.logger,
             logging.DEBUG,
@@ -757,6 +821,7 @@ class SmartRetailApplication:
             cart_event_type=persisted_event.event_type.value,
         )
         self._mark_database_ready_if_current(repository)
+        return persisted_event
 
     def _disable_persistence(self, operation: str, error: PersistenceError) -> None:
         self.metrics.record_persistence_error()

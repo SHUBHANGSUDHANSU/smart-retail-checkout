@@ -11,6 +11,11 @@ from smart_retail.domain.events import CartEvent, CartEventType
 from smart_retail.domain.models import CartItem, CartSnapshot, CheckoutSession
 from smart_retail.health import LivenessSnapshot, ReadinessSnapshot
 from smart_retail.metrics import MetricsSnapshot
+from smart_retail.realtime.models import (
+    RealtimeCheckoutActivity,
+    RealtimeEventType,
+    RealtimeMessage,
+)
 
 
 def _utc_datetime(timestamp: float) -> datetime:
@@ -166,3 +171,53 @@ class CheckoutSessionDetailResponse(CheckoutSessionResponse):
 class ErrorResponse(BaseModel):
     code: str
     message: str
+
+
+class RealtimeCheckoutEventResponse(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    id: int | None = Field(default=None, ge=1)
+    session_id: int | None = Field(default=None, ge=1)
+    timestamp: datetime
+    track_id: int | None
+    product_id: str | None
+    event_type: CartEventType
+    unit_price: int | None = Field(default=None, ge=0)
+
+    @classmethod
+    def from_activity(
+        cls, activity: RealtimeCheckoutActivity
+    ) -> RealtimeCheckoutEventResponse:
+        return cls(
+            id=activity.event_id,
+            session_id=activity.session_id,
+            timestamp=_utc_datetime(activity.timestamp),
+            track_id=activity.track_id,
+            product_id=activity.product_id,
+            event_type=activity.event_type,
+            unit_price=activity.unit_price,
+        )
+
+
+class RealtimeEnvelopeResponse(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    sequence: int = Field(ge=1)
+    type: RealtimeEventType
+    timestamp: datetime
+    payload: CartResponse | RealtimeCheckoutEventResponse | MetricsResponse
+
+    @classmethod
+    def from_message(cls, message: RealtimeMessage) -> RealtimeEnvelopeResponse:
+        if message.event_type is RealtimeEventType.CART_UPDATED:
+            payload = CartResponse.from_snapshot(message.payload)
+        elif message.event_type is RealtimeEventType.CHECKOUT_EVENT:
+            payload = RealtimeCheckoutEventResponse.from_activity(message.payload)
+        else:
+            payload = MetricsResponse.from_snapshot(message.payload)
+        return cls(
+            sequence=message.sequence,
+            type=message.event_type,
+            timestamp=_utc_datetime(message.timestamp),
+            payload=payload,
+        )

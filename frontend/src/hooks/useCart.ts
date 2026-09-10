@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCart, resetCart } from '../services/api'
 import type { CartResponse } from '../types/cart'
+import { useRealtime } from '../realtime/RealtimeContext'
 
-export const CART_POLL_INTERVAL_MS = 1_500
+export const CART_FALLBACK_INTERVAL_MS = 5_000
+export const CART_POLL_INTERVAL_MS = CART_FALLBACK_INTERVAL_MS
 
 export interface CartState {
   cart: CartResponse | null
@@ -21,6 +23,11 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useCart(): CartState {
+  const {
+    status: realtimeStatus,
+    connectionRevision,
+    subscribe: subscribeRealtime,
+  } = useRealtime()
   const [cart, setCart] = useState<CartResponse | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [isResetting, setIsResetting] = useState(false)
@@ -31,6 +38,7 @@ export function useCart(): CartState {
   const resetControllerRef = useRef<AbortController | null>(null)
   const readRequestRef = useRef<Promise<void> | null>(null)
   const resetRequestRef = useRef<Promise<boolean> | null>(null)
+  const realtimeRevisionRef = useRef(0)
 
   const loadCart = useCallback((duringReset = false): Promise<void> => {
     const existingRead = readRequestRef.current
@@ -44,11 +52,16 @@ export function useCart(): CartState {
     }
 
     const controller = new AbortController()
+    const startingRealtimeRevision = realtimeRevisionRef.current
     readControllerRef.current = controller
 
     const request = getCart(controller.signal)
       .then((nextCart) => {
-        if (!controller.signal.aborted && mountedRef.current) {
+        if (
+          !controller.signal.aborted &&
+          mountedRef.current &&
+          startingRealtimeRevision === realtimeRevisionRef.current
+        ) {
           setCart(nextCart)
           setLoadError(null)
         }
@@ -137,27 +150,49 @@ export function useCart(): CartState {
 
   useEffect(() => {
     mountedRef.current = true
-    let pollTimer: ReturnType<typeof setTimeout> | undefined
-
-    const poll = () => {
-      void refresh().finally(() => {
-        if (mountedRef.current) {
-          pollTimer = setTimeout(poll, CART_POLL_INTERVAL_MS)
-        }
-      })
-    }
-
-    poll()
+    void refresh()
 
     return () => {
       mountedRef.current = false
-      if (pollTimer !== undefined) {
-        clearTimeout(pollTimer)
-      }
       readControllerRef.current?.abort()
       resetControllerRef.current?.abort()
     }
   }, [refresh])
+
+  useEffect(
+    () =>
+      subscribeRealtime((event) => {
+        if (event.type === 'cart.updated' && mountedRef.current) {
+          realtimeRevisionRef.current += 1
+          setCart(event.payload)
+          setLoadError(null)
+          setIsInitialLoading(false)
+        }
+      }),
+    [subscribeRealtime],
+  )
+
+  useEffect(() => {
+    if (realtimeStatus === 'live') return
+    let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
+    const poll = () => {
+      void refresh().finally(() => {
+        if (mountedRef.current && !cancelled) {
+          timer = setTimeout(poll, CART_FALLBACK_INTERVAL_MS)
+        }
+      })
+    }
+    timer = setTimeout(poll, CART_FALLBACK_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [realtimeStatus, refresh])
+
+  useEffect(() => {
+    if (connectionRevision > 0) void refresh()
+  }, [connectionRevision, refresh])
 
   return {
     cart,

@@ -203,6 +203,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
     def test_shutdown_is_ordered_and_idempotent(self) -> None:
         order: list[str] = []
         application = make_application(order)
+        subscription = application.subscribe_realtime()
 
         first = application.shutdown("user_quit", frames_processed=12)
         second = application.shutdown("repeated", frames_processed=99)
@@ -214,6 +215,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
             application.get_readiness_snapshot().application_state,
             ApplicationState.STOPPED,
         )
+        self.assertTrue(subscription.closed)
 
     def test_cleanup_failure_does_not_skip_later_resources(self) -> None:
         order: list[str] = []

@@ -45,7 +45,10 @@ flowchart LR
     EventEngine --> Cart["Cart Service"]
 
     Cart -->|"events via coordinator"| SQLite["SQLite"]
-    Cart -->|"snapshots"| API["FastAPI"]
+    Cart -->|"snapshots and commands"| API["FastAPI REST"]
+    Cart -->|"immutable updates"| Realtime["Realtime Broadcaster"]
+    Realtime --> SSE["FastAPI SSE"]
+    SSE --> React["React Dashboard"]
     Cart -->|"snapshots"| UI["OpenCV UI"]
     ByteTrack --> UI
     EventEngine --> UI
@@ -63,6 +66,7 @@ flowchart LR
     Metrics -.-> EventEngine
     Metrics -.-> Cart
     Metrics -.-> API
+    Metrics -.-> Realtime
 ```
 
 The application uses a synchronous vision loop plus a local Uvicorn thread for
@@ -187,6 +191,7 @@ smart-retail-checkout/
 │   ├── CONTAINERIZATION.md
 │   ├── SECURITY.md
 │   ├── TESTING.md
+│   ├── REALTIME.md
 │   └── PRODUCTION_ARCHITECTURE.md
 ├── src/smart_retail/
 │   ├── app.py                     # Composition and thin orchestration
@@ -463,6 +468,7 @@ document at `/openapi.json`.
 | `GET` | `/api/v1/sessions?limit=20` | Recent persisted sessions |
 | `GET` | `/api/v1/sessions/{session_id}` | One session and its events |
 | `GET` | `/api/v1/metrics` | Realtime performance, checkout, cart, and error metrics |
+| `GET` | `/api/v1/stream` | SSE cart, checkout-event, and throttled metrics updates |
 
 Example requests while `python app.py` is running:
 

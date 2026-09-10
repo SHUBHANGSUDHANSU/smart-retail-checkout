@@ -29,12 +29,13 @@ all call the same idempotent `shutdown()` method:
 1. Signal the realtime loop to stop after its current frame and wait for that
    frame owner when shutdown was requested from another thread.
 2. Mark the application stopping so new API reset work is rejected.
-3. Stop FastAPI from accepting/processing additional requests.
-4. Finalize the active checkout session with one consistent cart total.
-5. Release the webcam.
-6. Destroy OpenCV windows.
-7. Close repository ownership.
-8. Mark the application stopped and emit the final lifecycle event.
+3. Close realtime subscriptions so SSE generators can finish.
+4. Stop FastAPI from accepting/processing additional requests.
+5. Finalize the active checkout session with one consistent cart total.
+6. Release the webcam.
+7. Destroy OpenCV windows.
+8. Close repository ownership.
+9. Mark the application stopped and emit the final lifecycle event.
 
 Every cleanup step is isolated. A failure is logged with its traceback and the
 remaining resources are still released. A runtime error keeps exit status `1`;
@@ -68,3 +69,6 @@ Graceful shutdown matters because a webcam is an exclusive OS resource, OpenCV
 owns native windows, Uvicorn runs in another thread, and checkout history needs
 a final total. Predictable ownership prevents a later run from inheriting a
 busy camera, an orphan API thread, or an incomplete session without explanation.
+The API-only entry point closes realtime subscriptions in Uvicorn's signal
+handler before request draining, preventing long-lived SSE responses from
+blocking lifespan teardown.

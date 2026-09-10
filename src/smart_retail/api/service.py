@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from fastapi import FastAPI
 
@@ -35,6 +35,9 @@ from smart_retail.infrastructure.sqlite_repository import (
     SQLiteCheckoutRepository,
 )
 from smart_retail.metrics import MetricsService, MetricsSnapshot
+from smart_retail.realtime.broadcaster import RealtimeBroadcaster, RealtimeSubscription
+from smart_retail.realtime.models import RealtimeCheckoutActivity
+from smart_retail.realtime.publisher import RealtimePublisher
 
 PersistenceResult = TypeVar("PersistenceResult")
 
@@ -48,6 +51,7 @@ class HeadlessAPIRuntime:
         logger: logging.Logger,
         products: dict[str, Product],
         repository: SQLiteCheckoutRepository | None = None,
+        realtime: RealtimePublisher | None = None,
     ) -> None:
         if config.database.enabled and repository is None:
             raise ValueError("Enabled database configuration requires a repository.")
@@ -63,6 +67,10 @@ class HeadlessAPIRuntime:
             ),
         )
         self.metrics = MetricsService(config.metrics.rolling_window_size)
+        self.realtime = realtime or RealtimePublisher(
+            RealtimeBroadcaster(config.realtime.queue_capacity),
+            metrics_interval_seconds=config.realtime.metrics_interval_seconds,
+        )
         self._products = dict(products)
         self._repository = repository
         self._session_id: int | None = None
@@ -150,6 +158,7 @@ class HeadlessAPIRuntime:
             self._stopping = True
 
         self.health.set_application_state(ApplicationState.STOPPING)
+        self.realtime.close()
         log_event(
             self.logger,
             logging.INFO,
@@ -237,6 +246,7 @@ class HeadlessAPIRuntime:
 
     def reset_checkout(self, source: str) -> CartResetResult:
         """Reset the same thread-safe CartService exposed by API routes."""
+        event_timestamp = time.time()
         with self._checkout_lock:
             if (
                 self.health.get_readiness().application_state
@@ -250,12 +260,13 @@ class HeadlessAPIRuntime:
             self.metrics.record_cart_reset(snapshot)
 
         repository, session_id = self._persistence_snapshot()
+        persisted_event = None
         if repository is not None and session_id is not None:
             try:
-                repository.record_cart_event(
+                persisted_event = repository.record_cart_event(
                     session_id=session_id,
                     event_type=CartEventType.RESET,
-                    timestamp=time.time(),
+                    timestamp=event_timestamp,
                 )
             except PersistenceError:
                 self.metrics.record_persistence_error()
@@ -271,6 +282,14 @@ class HeadlessAPIRuntime:
             removed_track_count=removed_count,
             cart_total=snapshot.total,
         )
+        self.realtime.publish_cart(snapshot)
+        self.realtime.publish_checkout_event(
+            RealtimeCheckoutActivity.from_mutation(
+                event_type=CartEventType.RESET,
+                timestamp=event_timestamp,
+                persisted_event=persisted_event,
+            )
+        )
         return CartResetResult(removed_count, snapshot)
 
     def get_cart_snapshot(self) -> CartSnapshot:
@@ -284,6 +303,15 @@ class HeadlessAPIRuntime:
 
     def get_metrics_snapshot(self) -> MetricsSnapshot:
         return self.metrics.get_snapshot()
+
+    def subscribe_realtime(self) -> RealtimeSubscription:
+        return self.realtime.subscribe()
+
+    def unsubscribe_realtime(self, subscription: RealtimeSubscription) -> None:
+        self.realtime.unsubscribe(subscription)
+
+    def get_realtime_heartbeat_seconds(self) -> float:
+        return self.config.realtime.heartbeat_seconds
 
     def get_recent_cart_events(self, limit: int) -> list[CartEvent]:
         return self._run_persistence_read(
@@ -389,15 +417,27 @@ def main() -> int:
     """Run the headless API server with environment-derived configuration."""
     import uvicorn
 
+    from smart_retail.api.server import ShutdownAwareServer
+
     config = load_config()
     logger = configure_logging(config.logging)
     application = create_service_app(config, logger)
-    uvicorn.run(
-        application,
-        host=config.api.host,
-        port=config.api.port,
-        log_config=None,
+    runtime = cast(HeadlessAPIRuntime, application.state.runtime)
+    server = ShutdownAwareServer(
+        uvicorn.Config(
+            application,
+            host=config.api.host,
+            port=config.api.port,
+            log_config=None,
+        ),
+        runtime.realtime.close,
     )
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # Uvicorn's convenience runner suppresses this after signal handling;
+        # the explicit server preserves the same clean CLI behavior.
+        pass
     return 0
 
 

@@ -31,6 +31,7 @@ through synchronized operations and immutable snapshots.
 | Product catalog | Shared but immutable after startup | No lock required |
 | SQLite event/session history | Shared durable state | Separate connections and SQLite transactions |
 | API-server lifecycle fields | Main-thread lifecycle plus Uvicorn internals | Owned by server adapter |
+| Realtime subscriber registry and queues | Vision/API publishers plus SSE clients | Broadcaster lock and bounded thread-safe queues |
 | Frame-loop stop/finished signals | Main thread and lifecycle callers | Events plus lifecycle lock |
 
 There is no in-memory event-history list. The REST event and session endpoints
@@ -108,6 +109,15 @@ and the two bounded latency deques. Expensive inference, rendering, database
 work, and logging happen outside it. Metrics never acquire cart, checkout,
 health, or runtime-state locks while holding their own lock, avoiding a new
 lock-order cycle.
+
+### Realtime publication
+
+Each SSE client owns a bounded `queue.Queue`; the broadcaster lock only copies
+the subscriber list and allocates an ordered sequence number. Queue offers are
+non-blocking and occur after the lock is released. Slow consumers drop their
+oldest queued message rather than applying backpressure to the vision loop.
+Cart and checkout locks are released before immutable snapshots are published,
+so SSE network I/O cannot create a lock-order cycle.
 
 ## Immutable presentation snapshots
 

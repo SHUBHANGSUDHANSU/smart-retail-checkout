@@ -62,7 +62,7 @@ shares CORS responses with the configured local development origins
 `http://localhost:5173` and `http://127.0.0.1:5173` by default. Change that
 browser-origin allowlist with `SMART_RETAIL_API_CORS_ALLOWED_ORIGINS` when using
 a different local frontend origin. This policy is not API authentication;
-the frontend uses `GET /health`, `GET /ready`, `GET /api/v1/metrics`,
+the frontend uses `GET /health`, `GET /ready`, `GET /api/v1/stream`, `GET /api/v1/metrics`,
 `GET /api/v1/cart`, `POST /api/v1/cart/reset`, and the checkout-history
 endpoints described below.
 
@@ -81,10 +81,10 @@ both commands use the same port.
 
 ## Current Cart
 
-The Dashboard loads the shared backend cart immediately and then polls
-`GET /api/v1/cart` every 1.5 seconds. Polls are scheduled only after the prior
-request settles, so slow requests do not overlap. The card preserves its last
-successful snapshot during background failures and offers a manual retry.
+The Dashboard loads the shared backend cart immediately through REST and then
+applies full `cart.updated` snapshots from the shared SSE connection. While SSE
+is unavailable it uses non-overlapping five-second fallback reads. The card
+preserves its last successful snapshot during background failures.
 
 Reset uses `POST /api/v1/cart/reset`, the same synchronized operation used by
 the OpenCV `R` key. The frontend asks for confirmation, prevents duplicate
@@ -94,10 +94,10 @@ and is suitable only for this trusted local demo.
 
 ## Checkout history
 
-The Dashboard loads `GET /api/v1/events?limit=8` immediately and refreshes it
-every two seconds. Like cart polling, the next timer starts only after the
-current request settles. Existing events remain visible if a background
-refresh fails, and a compact retry action is available.
+The Dashboard loads `GET /api/v1/events?limit=8` immediately and prepends live
+`checkout.event` messages from SSE. The bounded list deduplicates persisted
+event IDs and non-persisted stream sequence IDs. Five-second REST fallback is
+active only while SSE is unavailable.
 
 `GET /api/v1/sessions?limit=20` supplies the Sessions page. It is loaded once
 when the page opens because the backend provides a bounded newest-first list,
@@ -125,10 +125,10 @@ The Dashboard and System page read the backend's real observability endpoints:
   a not-ready/degraded state rather than being reduced to a network error.
 - `GET /api/v1/metrics` reports the current thread-safe metrics snapshot.
 
-Metrics refresh every two seconds. Health and readiness refresh together every
-five seconds. Each polling loop waits for its current request to settle before
-scheduling the next one, aborts work when its page unmounts, and preserves the
-last successful data during a background failure.
+Metrics load once through REST and update from throttled `metrics.updated` SSE
+messages. Health and readiness remain five-second REST checks. Reconnection
+performs one REST reconciliation; offline cart, events, and metrics fallback
+reads never overlap and preserve the last successful data.
 
 The Dashboard shows a concise status and vision-metrics summary. `/system`
 shows liveness, readiness, application state, every component returned by the

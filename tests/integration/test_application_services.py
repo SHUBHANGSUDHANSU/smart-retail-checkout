@@ -13,7 +13,12 @@ from smart_retail.app import SmartRetailApplication
 from smart_retail.checkout.cart import CartService
 from smart_retail.checkout.event_engine import CheckoutUpdate
 from smart_retail.config import load_config
-from smart_retail.domain.events import CartEventType, CheckoutEvent, CheckoutEventType
+from smart_retail.domain.events import (
+    CartEvent,
+    CartEventType,
+    CheckoutEvent,
+    CheckoutEventType,
+)
 from smart_retail.domain.models import CheckoutSession
 from smart_retail.health import HealthComponent, HealthService
 from smart_retail.infrastructure.logging_config import EventFormatter
@@ -22,6 +27,7 @@ from smart_retail.infrastructure.sqlite_repository import (
     PersistenceError,
     SQLiteCheckoutRepository,
 )
+from smart_retail.realtime.models import RealtimeCheckoutActivity, RealtimeEventType
 from smart_retail.vision.pipeline import VisionResult
 
 
@@ -120,10 +126,43 @@ class ApplicationPersistenceTests(unittest.TestCase):
                 [CartEventType.ADD, CartEventType.REMOVE, CartEventType.RESET],
             )
 
+    def test_successful_cart_mutation_publishes_full_snapshot_and_activity_once(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config = load_config({})
+            repository = SQLiteCheckoutRepository(
+                Path(temporary_directory) / "history.db"
+            )
+            repository.initialize(load_product_catalog(config.products_config_path))
+            session = repository.create_session(started_at=100.0)
+            application = self.make_application(repository, session.session_id)
+            subscription = application.subscribe_realtime()
+            enter = CheckoutEvent(
+                CheckoutEventType.ENTER,
+                track_id=7,
+                product_class="bottle",
+                timestamp=101.0,
+            )
+
+            application._apply_checkout_event(enter)
+            application._apply_checkout_event(enter)
+
+            cart_message = subscription.get_nowait()
+            event_message = subscription.get_nowait()
+            self.assertEqual(cart_message.event_type, RealtimeEventType.CART_UPDATED)
+            self.assertEqual(cart_message.payload.total, 40)
+            self.assertEqual(event_message.event_type, RealtimeEventType.CHECKOUT_EVENT)
+            self.assertIsInstance(event_message.payload, RealtimeCheckoutActivity)
+            self.assertEqual(event_message.payload.event_id, 1)
+            self.assertEqual(event_message.payload.event_type, CartEventType.ADD)
+            self.assertIsNone(subscription.get(timeout=0.01))
+
     def test_persistence_failure_does_not_undo_in_memory_cart(self) -> None:
         repository = MagicMock()
         repository.record_cart_event.side_effect = PersistenceError("disk full")
         application = self.make_application(repository)
+        subscription = application.subscribe_realtime()
 
         application._apply_checkout_event(
             CheckoutEvent(
@@ -142,6 +181,33 @@ class ApplicationPersistenceTests(unittest.TestCase):
             application.get_metrics_snapshot().persistence_errors_total,
             1,
         )
+        cart_message = subscription.get_nowait()
+        event_message = subscription.get_nowait()
+        self.assertEqual(cart_message.payload.total, 40)
+        self.assertIsNone(event_message.payload.event_id)
+        self.assertIsNone(event_message.payload.session_id)
+
+    def test_reset_publishes_empty_cart_and_reset_activity(self) -> None:
+        repository = MagicMock()
+        repository.record_cart_event.return_value = CartEvent(
+            event_id=1,
+            session_id=1,
+            timestamp=101.0,
+            track_id=None,
+            product_id=None,
+            event_type=CartEventType.RESET,
+            unit_price=None,
+        )
+        application = self.make_application(repository)
+        application.cart.add_item(7, "bottle")
+        subscription = application.subscribe_realtime()
+
+        result = application.reset_checkout(source="opencv")
+
+        self.assertEqual(result.cart.total, 0)
+        self.assertEqual(subscription.get_nowait().payload.total, 0)
+        activity = subscription.get_nowait().payload
+        self.assertEqual(activity.event_type, CartEventType.RESET)
 
     def test_application_run_opens_and_closes_history_session(self) -> None:
         repository = MagicMock()

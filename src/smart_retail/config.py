@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -256,6 +257,25 @@ class MetricsConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RealtimeConfig:
+    queue_capacity: int = 64
+    heartbeat_seconds: float = 15.0
+    metrics_interval_seconds: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.queue_capacity < 1:
+            raise ConfigurationError("Realtime queue capacity must be at least 1.")
+        _validate_positive_finite(
+            "Realtime heartbeat interval",
+            self.heartbeat_seconds,
+        )
+        _validate_positive_finite(
+            "Realtime metrics interval",
+            self.metrics_interval_seconds,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
@@ -266,6 +286,7 @@ class AppConfig:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     api: APIConfig = field(default_factory=APIConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    realtime: RealtimeConfig = field(default_factory=RealtimeConfig)
     products_config_path: Path = DEFAULT_CONFIG_DIR / "products.json"
 
     def __post_init__(self) -> None:
@@ -309,7 +330,10 @@ class AppConfig:
             f"logging={self.logging.level}/{log_encoding}/{log_destination} | "
             f"database={database_status} | "
             f"api={api_status} | "
-            f"metrics_window={self.metrics.rolling_window_size}f"
+            f"metrics_window={self.metrics.rolling_window_size}f | "
+            f"realtime=queue:{self.realtime.queue_capacity} "
+            f"heartbeat:{self.realtime.heartbeat_seconds:g}s "
+            f"metrics:{self.realtime.metrics_interval_seconds:g}s"
         )
 
 
@@ -447,6 +471,23 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
             60,
         ),
     )
+    realtime = RealtimeConfig(
+        queue_capacity=_env_int(
+            environment,
+            "REALTIME_QUEUE_CAPACITY",
+            64,
+        ),
+        heartbeat_seconds=_env_float(
+            environment,
+            "REALTIME_HEARTBEAT_SECONDS",
+            15.0,
+        ),
+        metrics_interval_seconds=_env_float(
+            environment,
+            "REALTIME_METRICS_INTERVAL_SECONDS",
+            1.0,
+        ),
+    )
     return AppConfig(
         camera=camera,
         model=model,
@@ -457,6 +498,7 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         database=database,
         api=api,
         metrics=metrics,
+        realtime=realtime,
         products_config_path=_env_path(
             environment,
             "PRODUCTS_CONFIG_PATH",
@@ -598,3 +640,10 @@ def _normalize_cors_origin(origin: str) -> str:
 def _validate_probability(label: str, value: float) -> None:
     if not 0.0 <= value <= 1.0:
         raise ConfigurationError(f"{label} must be between 0.0 and 1.0.")
+
+
+def _validate_positive_finite(label: str, value: float) -> None:
+    if not math.isfinite(value):
+        raise ConfigurationError(f"{label} must be finite.")
+    if value <= 0:
+        raise ConfigurationError(f"{label} must be positive.")

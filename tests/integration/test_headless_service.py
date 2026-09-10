@@ -18,6 +18,7 @@ from smart_retail.infrastructure.sqlite_repository import (
     PersistenceError,
     SQLiteCheckoutRepository,
 )
+from smart_retail.realtime.models import RealtimeEventType
 
 
 def quiet_logger() -> logging.Logger:
@@ -147,6 +148,7 @@ class HeadlessAPIServiceTests(unittest.TestCase):
         application = create_service_app(self.config, quiet_logger())
         with TestClient(application):
             runtime = application.state.runtime
+            subscription = runtime.subscribe_realtime()
 
             result = runtime.reset_checkout(source="api")
             persisted = runtime.get_recent_cart_events(limit=1)
@@ -157,6 +159,14 @@ class HeadlessAPIServiceTests(unittest.TestCase):
             self.assertEqual(
                 runtime.get_metrics_snapshot().cart_resets_total,
                 1,
+            )
+            self.assertEqual(
+                subscription.get_nowait().event_type,
+                RealtimeEventType.CART_UPDATED,
+            )
+            self.assertEqual(
+                subscription.get_nowait().event_type,
+                RealtimeEventType.CHECKOUT_EVENT,
             )
 
     def test_history_read_failures_update_readiness_and_metrics(self) -> None:

@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router'
 
+import { RealtimeStatus } from '../components/realtime/RealtimeStatus'
+
 const navigation = [
   { label: 'Dashboard', to: '/' },
   { label: 'Sessions', to: '/sessions' },
@@ -33,6 +35,7 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+        <RealtimeStatus />
       </aside>
       <main className="main-content">
         <Outlet />

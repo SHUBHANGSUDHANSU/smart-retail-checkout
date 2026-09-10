@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 
 import { App } from './App'
+import { RealtimeProvider } from './realtime/RealtimeProvider'
 import './styles/global.css'
 
 const root = document.getElementById('root')
@@ -12,6 +13,8 @@ if (root === null) {
 
 createRoot(root).render(
   <BrowserRouter>
-    <App />
+    <RealtimeProvider>
+      <App />
+    </RealtimeProvider>
   </BrowserRouter>,
 )
