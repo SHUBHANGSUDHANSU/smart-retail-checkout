@@ -20,7 +20,11 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useRecentEvents(): RecentEventsState {
-  const realtime = useRealtime()
+  const {
+    status: realtimeStatus,
+    connectionRevision,
+    subscribe: subscribeRealtime,
+  } = useRealtime()
   const [events, setEvents] = useState<CheckoutActivity[] | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +92,7 @@ export function useRecentEvents(): RecentEventsState {
 
   useEffect(
     () =>
-      realtime.subscribe((event) => {
+      subscribeRealtime((event) => {
         if (event.type !== 'checkout.event' || !mountedRef.current) return
         realtimeRevisionRef.current += 1
         const incoming: CheckoutActivity = {
@@ -107,26 +111,30 @@ export function useRecentEvents(): RecentEventsState {
         setError(null)
         setIsInitialLoading(false)
       }),
-    [realtime],
+    [subscribeRealtime],
   )
 
   useEffect(() => {
-    if (realtime.status === 'live') return
+    if (realtimeStatus === 'live') return
     let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
     const poll = () => {
       void refresh().finally(() => {
-        if (mountedRef.current && realtime.status !== 'live') {
+        if (mountedRef.current && !cancelled) {
           timer = setTimeout(poll, EVENTS_FALLBACK_INTERVAL_MS)
         }
       })
     }
     timer = setTimeout(poll, EVENTS_FALLBACK_INTERVAL_MS)
-    return () => clearTimeout(timer)
-  }, [realtime.status, refresh])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [realtimeStatus, refresh])
 
   useEffect(() => {
-    if (realtime.connectionRevision > 0) void refresh()
-  }, [realtime.connectionRevision, refresh])
+    if (connectionRevision > 0) void refresh()
+  }, [connectionRevision, refresh])
 
   return { events, isInitialLoading, error, refresh }
 }

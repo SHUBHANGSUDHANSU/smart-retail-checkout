@@ -23,7 +23,11 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useCart(): CartState {
-  const realtime = useRealtime()
+  const {
+    status: realtimeStatus,
+    connectionRevision,
+    subscribe: subscribeRealtime,
+  } = useRealtime()
   const [cart, setCart] = useState<CartResponse | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [isResetting, setIsResetting] = useState(false)
@@ -157,7 +161,7 @@ export function useCart(): CartState {
 
   useEffect(
     () =>
-      realtime.subscribe((event) => {
+      subscribeRealtime((event) => {
         if (event.type === 'cart.updated' && mountedRef.current) {
           realtimeRevisionRef.current += 1
           setCart(event.payload)
@@ -165,26 +169,30 @@ export function useCart(): CartState {
           setIsInitialLoading(false)
         }
       }),
-    [realtime],
+    [subscribeRealtime],
   )
 
   useEffect(() => {
-    if (realtime.status === 'live') return
+    if (realtimeStatus === 'live') return
     let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
     const poll = () => {
       void refresh().finally(() => {
-        if (mountedRef.current && realtime.status !== 'live') {
+        if (mountedRef.current && !cancelled) {
           timer = setTimeout(poll, CART_FALLBACK_INTERVAL_MS)
         }
       })
     }
     timer = setTimeout(poll, CART_FALLBACK_INTERVAL_MS)
-    return () => clearTimeout(timer)
-  }, [realtime.status, refresh])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [realtimeStatus, refresh])
 
   useEffect(() => {
-    if (realtime.connectionRevision > 0) void refresh()
-  }, [realtime.connectionRevision, refresh])
+    if (connectionRevision > 0) void refresh()
+  }, [connectionRevision, refresh])
 
   return {
     cart,

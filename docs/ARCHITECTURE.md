@@ -15,7 +15,10 @@ flowchart LR
     EventEngine --> Cart["Cart Service"]
 
     Cart -->|"meaningful events via coordinator"| SQLite["SQLite history"]
-    Cart -->|"immutable snapshots"| API["FastAPI"]
+    Cart -->|"snapshots and commands"| API["FastAPI REST"]
+    Cart -->|"immutable updates"| Broadcaster["Realtime broadcaster"]
+    Broadcaster --> SSE["FastAPI SSE"]
+    SSE --> React["React dashboard"]
     Cart -->|"immutable snapshots"| UI["OpenCV UI"]
     ByteTrack --> UI
     EventEngine --> UI
@@ -40,6 +43,7 @@ flowchart LR
     Metrics -.-> EventEngine
     Metrics -.-> Cart
     Metrics -.-> API
+    Metrics -.-> Broadcaster
 ```
 
 Solid arrows show runtime data flow. Dotted arrows show cross-cutting
@@ -65,6 +69,7 @@ small, framework-independent in-memory service.
 | `infrastructure/logging_config.py` | Configure readable or JSON event logs and optional rotating files | Standard logging, logging config | Yes |
 | `presentation/opencv_ui.py` | Render frames, zones, tracks, cart snapshots, notifications, and keyboard-visible help | OpenCV, immutable snapshots | With OpenCV drawing boundary replaced |
 | `api/` | Validate HTTP input and serialize shared business snapshots and persisted history | FastAPI, Pydantic, `APIRuntime` protocol | Yes, through `TestClient` |
+| `realtime/` | Publish typed updates through bounded per-client queues without blocking producers | Immutable snapshots, standard-library synchronization | Yes |
 | `health.py` | Store thread-safe lifecycle and component readiness transitions | Application-state enum | Yes |
 | `metrics.py` | Store thread-safe counters, gauges, and bounded rolling latency averages | Domain snapshots, clock | Yes |
 | `config.py` | Load and validate immutable startup configuration once | Standard library | Yes |
@@ -111,8 +116,10 @@ drawing algorithms.
    `RESET` event.
 7. Metrics receive bounded numeric updates and `OpenCVUI` renders immutable
    checkout/cart snapshots.
-8. FastAPI workers may concurrently read snapshots or SQLite history; they
-   never run inference.
+8. Successful cart mutations and throttled metrics snapshots are published to
+   bounded realtime subscriber queues after business locks are released.
+9. FastAPI workers may concurrently read snapshots or SQLite history, and SSE
+   workers drain private client queues; neither path runs inference.
 
 ## State and consistency
 

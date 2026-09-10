@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from fastapi import FastAPI
 
@@ -417,15 +417,27 @@ def main() -> int:
     """Run the headless API server with environment-derived configuration."""
     import uvicorn
 
+    from smart_retail.api.server import ShutdownAwareServer
+
     config = load_config()
     logger = configure_logging(config.logging)
     application = create_service_app(config, logger)
-    uvicorn.run(
-        application,
-        host=config.api.host,
-        port=config.api.port,
-        log_config=None,
+    runtime = cast(HeadlessAPIRuntime, application.state.runtime)
+    server = ShutdownAwareServer(
+        uvicorn.Config(
+            application,
+            host=config.api.host,
+            port=config.api.port,
+            log_config=None,
+        ),
+        runtime.realtime.close,
     )
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # Uvicorn's convenience runner suppresses this after signal handling;
+        # the explicit server preserves the same clean CLI behavior.
+        pass
     return 0
 
 

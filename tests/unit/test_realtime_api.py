@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 import unittest
 from collections import deque
+from unittest.mock import Mock
+
+import uvicorn
 
 from smart_retail.api.factory import create_api_app
 from smart_retail.api.routes.realtime import encode_sse_message, stream_realtime_events
+from smart_retail.api.server import ShutdownAwareServer
 from smart_retail.domain.models import CartSnapshot
 from smart_retail.realtime.broadcaster import RealtimeSubscription
 from smart_retail.realtime.models import RealtimeEventType, RealtimeMessage
@@ -75,6 +79,18 @@ class RealtimeEncodingTests(unittest.TestCase):
         operation = application.openapi()["paths"]["/api/v1/stream"]["get"]
 
         self.assertIn("realtime", operation["tags"])
+
+    def test_server_closes_streams_before_draining_connections(self) -> None:
+        before_shutdown = Mock()
+        server = ShutdownAwareServer(
+            uvicorn.Config(create_api_app(_Runtime()), log_config=None),
+            before_shutdown,
+        )
+
+        server.handle_exit(2, None)
+
+        before_shutdown.assert_called_once_with()
+        self.assertTrue(server.should_exit)
 
 
 class RealtimeStreamTests(unittest.IsolatedAsyncioTestCase):

@@ -49,9 +49,15 @@ the HTTP presentation layer.
 | `GET` | `/api/v1/sessions?limit=20` | `200` | Newest persisted sessions; limit `1..100` |
 | `GET` | `/api/v1/sessions/{session_id}` | `200` | One positive session ID and its ordered events |
 | `GET` | `/api/v1/metrics` | `200` | Thread-safe current metrics snapshot |
+| `GET` | `/api/v1/stream` | `200` | Long-lived SSE stream of typed live updates |
 
 All currency fields are integer rupees. Timestamps are serialized as UTC ISO
 8601 values.
+
+The stream endpoint emits `cart.updated`, `checkout.event`, and
+`metrics.updated` named events plus comment heartbeats. See
+[REALTIME.md](REALTIME.md) for its envelope, backpressure, and reconnection
+contract.
 
 ## Response examples
 

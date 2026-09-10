@@ -19,7 +19,11 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useMetrics(): MetricsState {
-  const realtime = useRealtime()
+  const {
+    status: realtimeStatus,
+    connectionRevision,
+    subscribe: subscribeRealtime,
+  } = useRealtime()
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -86,7 +90,7 @@ export function useMetrics(): MetricsState {
 
   useEffect(
     () =>
-      realtime.subscribe((event) => {
+      subscribeRealtime((event) => {
         if (event.type === 'metrics.updated' && mountedRef.current) {
           realtimeRevisionRef.current += 1
           setMetrics(event.payload)
@@ -94,26 +98,30 @@ export function useMetrics(): MetricsState {
           setIsInitialLoading(false)
         }
       }),
-    [realtime],
+    [subscribeRealtime],
   )
 
   useEffect(() => {
-    if (realtime.status === 'live') return
+    if (realtimeStatus === 'live') return
     let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
     const poll = () => {
       void refresh().finally(() => {
-        if (mountedRef.current && realtime.status !== 'live') {
+        if (mountedRef.current && !cancelled) {
           timer = setTimeout(poll, METRICS_FALLBACK_INTERVAL_MS)
         }
       })
     }
     timer = setTimeout(poll, METRICS_FALLBACK_INTERVAL_MS)
-    return () => clearTimeout(timer)
-  }, [realtime.status, refresh])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [realtimeStatus, refresh])
 
   useEffect(() => {
-    if (realtime.connectionRevision > 0) void refresh()
-  }, [realtime.connectionRevision, refresh])
+    if (connectionRevision > 0) void refresh()
+  }, [connectionRevision, refresh])
 
   return { metrics, isInitialLoading, error, refresh }
 }
